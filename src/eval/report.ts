@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { Effect } from "effect";
 import { loadResponses } from "../pipeline/ingest";
 import { RUN_PATH } from "../run/read";
-import { type EvalRun, parseRun } from "../run/run-file";
+import { type EvalRun, parseRun, withEval } from "../run/run-file";
 import { keywordBaseline } from "./baseline";
 import { type ClassMetrics, type EvalReport, evaluate } from "./evaluate";
 import { loadGroundTruth } from "./ground-truth";
@@ -72,7 +72,14 @@ const program = Effect.gen(function* () {
   const baseline = keywordBaseline(responses);
   const { dev, holdout } = splitLabeled(truth);
 
-  const run = parseRun(JSON.parse(yield* Effect.promise(() => readFile(RUN_PATH, "utf8"))));
+  // The raw object is kept as the write-back base. `parseRun` validates it and
+  // strips unknown keys, so writing the *parsed* value back would delete every
+  // field the schema has not caught up with — see `withEval`.
+  const raw = JSON.parse(yield* Effect.promise(() => readFile(RUN_PATH, "utf8"))) as Record<
+    string,
+    unknown
+  >;
+  const run = parseRun(raw);
   const labeled = new Set(truth.map((label) => label.responseId));
   const covered = run.leads.filter((lead) => labeled.has(lead.responseId)).length;
   const modelScored = covered === truth.length;
@@ -100,7 +107,7 @@ const program = Effect.gen(function* () {
   // `eval` stays null unless the model was actually scored: the field is a
   // claim about this run, and a baseline-only report published under it would
   // read as a model result to anyone who did not run the command themselves.
-  const updated = { ...run, eval: modelScored ? scored : null };
+  const updated = withEval(raw, modelScored ? scored : null);
   yield* Effect.promise(() => writeFile(RUN_PATH, `${JSON.stringify(updated, null, 2)}\n`, "utf8"));
   console.log(
     `\nWrote eval: ${modelScored ? "dev + holdout reports" : "null (not scored)"} to ${RUN_PATH}\n`,

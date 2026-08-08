@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassMetrics, EvalReport } from "../eval/evaluate";
-import { parseRun, RunFileError } from "./run-file";
+import { parseRun, RunFileError, withEval } from "./run-file";
 
 function classMetrics(className: string, overrides: Partial<ClassMetrics> = {}): ClassMetrics {
   return {
@@ -88,5 +88,46 @@ describe("parseRun", () => {
       expect(error).toBeInstanceOf(RunFileError);
       expect((error as RunFileError).message).toContain("eval.dev.split");
     }
+  });
+});
+
+describe("withEval", () => {
+  it("sets the eval report on a run", () => {
+    const updated = withEval(run(), { dev: report("dev"), holdout: report("holdout") });
+
+    expect(parseRun(updated).eval?.dev.split).toBe("dev");
+  });
+
+  it("records an unscored run as null", () => {
+    expect(
+      parseRun(withEval(run({ eval: { dev: report("dev"), holdout: report("holdout") } }), null))
+        .eval,
+    ).toBeNull();
+  });
+
+  /**
+   * The reason this function exists rather than a spread at the call site.
+   *
+   * `parseRun` strips unknown keys — that is the right behaviour for the app,
+   * which should not act on fields it cannot validate. But it makes the parsed
+   * object the wrong base for a write-back: `{ ...parseRun(raw), eval }` reads
+   * a run, silently drops every field the schema does not yet know about, and
+   * writes the result back over the committed artifact.
+   *
+   * Slices #4, #15, and #19 all add fields to `run.json`. The first one that
+   * lands would be deleted by the next `pnpm eval`, with no error and no diff
+   * anyone reads before committing.
+   */
+  it("keeps fields the schema does not know about", () => {
+    const updated = withEval(
+      { ...run(), ledger: { entries: 12 }, failures: { rateLimited: 3 } },
+      null,
+    );
+
+    expect(updated).toMatchObject({ ledger: { entries: 12 }, failures: { rateLimited: 3 } });
+  });
+
+  it("refuses to produce a run that would not parse", () => {
+    expect(() => withEval({ ...run(), counts: "not an object" }, null)).toThrow(RunFileError);
   });
 });

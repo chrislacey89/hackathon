@@ -195,3 +195,36 @@ export function parseRun(raw: unknown): RunFile {
   if (!result.success) throw new RunFileError(result.error.issues);
   return result.data as RunFile;
 }
+
+/**
+ * Set `eval` on a run read off disk, preserving fields this schema does not
+ * know about.
+ *
+ * The obvious spelling — `{ ...parseRun(raw), eval }` — is quietly destructive.
+ * `RunFileSchema` is a strict `z.object`, so parsing *strips* every unknown key
+ * (verified: an added `futureField` does not survive `parseRun`). That is the
+ * behaviour the app wants, because it should not act on fields it cannot
+ * validate. It is the wrong base for a write-back: `pnpm eval` would read a
+ * run, drop everything the schema had not caught up with, and write the
+ * remainder back over the committed artifact with no error and no signal.
+ *
+ * Slices #4, #15, and #19 each add fields to `run.json`. The first to land
+ * would be deleted by the next eval run.
+ *
+ * The alternative considered and rejected was `z.looseObject` on
+ * `RunFileSchema`. It preserves unknown keys, but its inferred type carries an
+ * index signature — `run.totallyMadeUpField` then compiles clean everywhere,
+ * including in the Next.js app. That trades a latent write-back bug for a
+ * permanent hole in the type the whole project reads runs through.
+ *
+ * Validates the result rather than the input, so a caller cannot write a run
+ * that would fail to parse on the way back in.
+ */
+export function withEval(
+  raw: Record<string, unknown>,
+  value: EvalRun | null,
+): Record<string, unknown> {
+  const updated = { ...raw, eval: value };
+  parseRun(updated);
+  return updated;
+}
