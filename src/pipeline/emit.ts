@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { Data, Effect } from "effect";
+import type { Config } from "../config/load";
 import { RUN_PATH } from "../run/read";
 import type { RunCounts, RunFile } from "../run/run-file";
 import { isUnowned, type RoutedLead } from "./route";
@@ -13,8 +14,8 @@ export type WriteRunOptions = {
   path?: string;
   /** Injected rather than read from the clock, so a run is reproducible and diffable. */
   generatedAt: string;
-  /** Which config file produced the routing. */
-  configSource?: string;
+  /** The config this run routed with. Its roster is denormalised into the file. */
+  config: Config;
   /** True when this run does not cover the whole export. */
   partial?: boolean;
 };
@@ -53,7 +54,13 @@ export function writeRun(
 
   const run: RunFile = {
     generatedAt: options.generatedAt,
-    configSource: options.configSource ?? "teams.example.json",
+    configSource: options.config.source,
+    recipients: options.config.recipients,
+    teams: options.config.teams.map((team) => ({
+      id: team.id,
+      label: team.label,
+      inferred: team.inferred ?? false,
+    })),
     partial: options.partial ?? false,
     counts: count(leads),
     leads,

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+import type { Config } from "../config/load";
 import { readRun } from "../run/read";
 import { writeRun } from "./emit";
 import type { RoutedLead } from "./route";
@@ -31,6 +32,22 @@ function lead(overrides: Partial<RoutedLead> = {}): RoutedLead {
 
 const AT = "2026-08-08T12:00:00Z";
 
+const CONFIG: Config = {
+  source: "teams.example.json",
+  nearMissCap: 25,
+  concurrency: 4,
+  recipients: [{ id: "r-program", name: "Program Lead", email: "program@ja.org" }],
+  teams: [
+    {
+      id: "program-staff",
+      label: "Program Staff",
+      owns: ["volunteer_again"],
+      recipientIds: ["r-program"],
+      inferred: true,
+    },
+  ],
+};
+
 async function runPath(): Promise<string> {
   return join(await mkdtemp(join(tmpdir(), "vir-run-")), "run.json");
 }
@@ -39,7 +56,7 @@ describe("writeRun", () => {
   it("writes a run the reader can load back", async () => {
     const path = await runPath();
 
-    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT }));
+    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT, config: CONFIG }));
     const run = await readRun(path);
 
     expect(run.leads).toHaveLength(1);
@@ -58,7 +75,7 @@ describe("writeRun", () => {
           lead({ responseId: "JA-3", signal: "none", engagementType: null, engagementTypes: [] }),
           lead({ responseId: "JA-4", serviceRecovery: true }),
         ],
-        { path, generatedAt: AT },
+        { path, generatedAt: AT, config: CONFIG },
       ),
     );
     const run = await readRun(path);
@@ -76,7 +93,11 @@ describe("writeRun", () => {
     const path = await runPath();
 
     await Effect.runPromise(
-      writeRun([lead({ teamId: null, recipientIds: [] })], { path, generatedAt: AT }),
+      writeRun([lead({ teamId: null, recipientIds: [] })], {
+        path,
+        generatedAt: AT,
+        config: CONFIG,
+      }),
     );
 
     expect((await readRun(path)).counts.unowned).toBe(1);
@@ -85,7 +106,9 @@ describe("writeRun", () => {
   it("marks the tracer's run partial, because one response is not the export", async () => {
     const path = await runPath();
 
-    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT, partial: true }));
+    await Effect.runPromise(
+      writeRun([lead()], { path, generatedAt: AT, config: CONFIG, partial: true }),
+    );
 
     expect((await readRun(path)).partial).toBe(true);
   });
@@ -93,7 +116,7 @@ describe("writeRun", () => {
   it("writes readable JSON rather than one long line", async () => {
     const path = await runPath();
 
-    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT }));
+    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT, config: CONFIG }));
 
     expect(await readFile(path, "utf8")).toMatch(/\n {2}"counts"/);
   });

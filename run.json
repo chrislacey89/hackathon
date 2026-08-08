@@ -1,6 +1,54 @@
 {
-  "generatedAt": "2026-08-08T16:32:18.724Z",
+  "generatedAt": "2026-08-08T16:33:34.753Z",
   "configSource": "teams.example.json",
+  "recipients": [
+    {
+      "id": "recipient-program",
+      "name": "Program Staff Lead (placeholder)",
+      "email": "program-staff@example.org",
+      "role": "Program Manager"
+    },
+    {
+      "id": "recipient-development",
+      "name": "Development Officer (placeholder)",
+      "email": "development@example.org",
+      "role": "Development Officer"
+    },
+    {
+      "id": "recipient-corporate",
+      "name": "Corporate Partnerships Lead (placeholder)",
+      "email": "corporate-partnerships@example.org",
+      "role": "Partnerships Manager"
+    },
+    {
+      "id": "recipient-recruitment",
+      "name": "Volunteer Recruitment Lead (placeholder)",
+      "email": "volunteer-recruitment@example.org",
+      "role": "Volunteer Coordinator"
+    }
+  ],
+  "teams": [
+    {
+      "id": "program-staff",
+      "label": "Program Staff",
+      "inferred": true
+    },
+    {
+      "id": "development",
+      "label": "Development",
+      "inferred": true
+    },
+    {
+      "id": "corporate-partnerships",
+      "label": "Corporate Partnerships",
+      "inferred": false
+    },
+    {
+      "id": "volunteer-recruitment",
+      "label": "Volunteer Recruitment",
+      "inferred": true
+    }
+  ],
   "partial": true,
   "counts": {
     "responses": 1,
@@ -15,7 +63,7 @@
       "signal": "strong",
       "engagementType": "volunteer_again",
       "engagementTypes": ["volunteer_again"],
-      "confidence": 0.98,
+      "confidence": 1,
       "quote": "That said, put me down for next fall.",
       "sourceColumn": "q6_what_could_improve",
       "serviceRecovery": false,
@@ -27,7 +75,7 @@
           "quote": "Staff support was excellent.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 0.95,
+          "confidence": 1,
           "serviceRecovery": false
         },
         {
@@ -45,7 +93,7 @@
           "quote": "That said, put me down for next fall.",
           "signal": "strong",
           "engagementType": "volunteer_again",
-          "confidence": 0.98,
+          "confidence": 1,
           "serviceRecovery": false
         },
         {
@@ -54,7 +102,7 @@
           "quote": "Really well run.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 0.95,
+          "confidence": 1,
           "serviceRecovery": false
         },
         {
@@ -63,7 +111,7 @@
           "quote": "Thank you for everything you do.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 0.95,
+          "confidence": 1,
           "serviceRecovery": false
         }
       ],

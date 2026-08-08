@@ -5,7 +5,7 @@
     "module": "Preserve",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -17,11 +17,21 @@
     "skipLibCheck": true,
     "incremental": true,
     "types": ["node"],
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "next-env.d.ts", ".next/types/**/*.ts", "*.config.ts"],
+  "include": [
+    "src",
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "*.config.ts",
+    ".next/dev/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

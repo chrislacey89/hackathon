@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "sessions": {
+    "6e6416bf-0e0a-4874-966e-9566b0a4c904": {
+      "updatedAt": 1786206900295,
+      "files": {
+        "/Users/christopherlacey/conductor/workspaces/hackathon/brazzaville/src/app/page.module.css": {
+          "editCount": 1,
+          "findings": [],
+          "cleanAcked": true
+        },
+        "/Users/christopherlacey/conductor/workspaces/hackathon/brazzaville/src/app/page.tsx": {
+          "editCount": 1,
+          "findings": [],
+          "cleanAcked": true
+        },
+        "/Users/christopherlacey/conductor/workspaces/hackathon/brazzaville/src/app/globals.css": {
+          "editCount": 0,
+          "findings": []
+        },
+        "/Users/christopherlacey/conductor/workspaces/hackathon/brazzaville/next.config.ts": {
+          "editCount": 1,
+          "findings": []
+        }
+      }
+    }
+  }
+}

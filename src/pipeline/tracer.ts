@@ -43,7 +43,7 @@ const program = Effect.gen(function* () {
 
   yield* writeRun([lead], {
     generatedAt: new Date().toISOString(),
-    configSource: config.source,
+    config,
     // One response is not the export. A tracer run that rendered as complete
     // would be the exact failure `partial` exists to prevent.
     partial: true,
