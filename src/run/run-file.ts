@@ -132,6 +132,12 @@ const ClassMetricsSchema = z.object({
   recall: z.number().min(0).max(1),
   support: z.number().int().min(0),
   unmeasurable: z.boolean(),
+  /**
+   * Nullable rather than optional, for the same reason `support` is required:
+   * a flag that says a rate is unreadable without saying why leaves the reader
+   * to assume the common case, and the two reasons need opposite responses.
+   */
+  unmeasurableReason: z.enum(["low-support", "taxonomy-mismatch"]).nullable(),
 });
 
 const EvalReportSchema = z.object({

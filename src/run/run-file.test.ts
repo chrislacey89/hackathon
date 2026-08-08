@@ -12,6 +12,7 @@ function classMetrics(className: string, overrides: Partial<ClassMetrics> = {}):
     recall: 1,
     support: 1,
     unmeasurable: true,
+    unmeasurableReason: "low-support",
     ...overrides,
   };
 }
