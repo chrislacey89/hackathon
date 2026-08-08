@@ -45,7 +45,8 @@
           "signal": "none",
           "engagementType": null,
           "confidence": 0.95,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": null
         },
         {
           "column": "q6_what_could_improve",
@@ -54,7 +55,8 @@
           "signal": "none",
           "engagementType": null,
           "confidence": 0.9,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": null
         },
         {
           "column": "q6_what_could_improve",
@@ -63,7 +65,8 @@
           "signal": "strong",
           "engagementType": "volunteer_again",
           "confidence": 0.98,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": null
         },
         {
           "column": "q7_anything_else",
@@ -72,7 +75,8 @@
           "signal": "none",
           "engagementType": null,
           "confidence": 0.95,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": null
         },
         {
           "column": "q7_anything_else",
@@ -81,7 +85,8 @@
           "signal": "none",
           "engagementType": null,
           "confidence": 0.95,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": null
         }
       ],
       "teamId": "placeholder-team",

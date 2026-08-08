@@ -1,3 +1,5 @@
+import type { FreeTextColumn } from "../domain/engagement";
+import type { ResponseVerdict } from "./aggregate";
 import type { SurveyResponse } from "./ingest";
 
 /**
@@ -26,4 +28,69 @@ export function consentOf(response: SurveyResponse): Consent {
   if (response.optInContact === true) return "granted";
   if (response.optInContact === false) return "declined";
   return "needs_check";
+}
+
+/**
+ * One quotable sentence, with everything needed to attribute it.
+ *
+ * Shape locked in PRD #1 §Implementation Decisions. `consent` is the two-state
+ * narrowing of `Consent`: `declined` cannot appear here, because a declined
+ * response never produces a candidate at all (PRD #1 §No-gos — no quote used
+ * from a volunteer who declined contact). The type says so, so a downstream
+ * consumer cannot write a branch for a case that does not exist.
+ */
+export type QuoteCandidate = {
+  responseId: string;
+  quote: string;
+  sourceColumn: FreeTextColumn;
+  volunteerName: string;
+  program: string;
+  consent: Exclude<Consent, "declined">;
+};
+
+/**
+ * Collect every quotable sentence the model found, minus everyone who said no.
+ *
+ * Two inputs rather than one because the judgement and the attribution live in
+ * different places: quotability is on the sentence verdicts, and the
+ * volunteer's name and program are on the survey row. Neither type carries the
+ * other's half.
+ *
+ * Reads `verdicts`, never `signal`. A response whose signal is `none` is not a
+ * lead, and this stream does not care — it is a library, not a handoff, and
+ * the best line in the export may well come from someone with no intention of
+ * coming back.
+ */
+export function extractQuotes(
+  rows: SurveyResponse[],
+  verdicts: ResponseVerdict[],
+): QuoteCandidate[] {
+  const byId = new Map(rows.map((row) => [row.responseId, row]));
+  const candidates: QuoteCandidate[] = [];
+
+  for (const verdict of verdicts) {
+    const row = byId.get(verdict.responseId);
+    if (row === undefined) {
+      throw new Error(
+        `${verdict.responseId} has a verdict but no survey row; a quote cannot be attributed`,
+      );
+    }
+
+    const consent = consentOf(row);
+    if (consent === "declined") continue;
+
+    for (const sentence of verdict.verdicts) {
+      if (sentence.quotable !== true) continue;
+      candidates.push({
+        responseId: verdict.responseId,
+        quote: sentence.quote,
+        sourceColumn: sentence.column,
+        volunteerName: row.volunteerName,
+        program: row.program,
+        consent,
+      });
+    }
+  }
+
+  return candidates;
 }
