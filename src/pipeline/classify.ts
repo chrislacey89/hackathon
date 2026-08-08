@@ -2,11 +2,13 @@ import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { Data, Effect } from "effect";
 import { z } from "zod";
+import type { Category } from "../config/load";
 import {
   type EngagementSignal,
   type EngagementType,
   type SentenceVerdict,
   SentenceVerdictSchema,
+  sentenceVerdictSchemaFor,
 } from "../domain/engagement";
 import type { SurveyResponse } from "./ingest";
 import { type Sentence, segmentResponse } from "./segment";
@@ -20,9 +22,9 @@ import { type Sentence, segmentResponse } from "./segment";
 export type { EngagementSignal, EngagementType, SentenceVerdict };
 export { SentenceVerdictSchema };
 
-const ClassificationSchema = z.object({
-  verdicts: z.array(SentenceVerdictSchema),
-});
+function classificationSchemaFor(categories: Category[]) {
+  return z.object({ verdicts: z.array(sentenceVerdictSchemaFor(categories.map((c) => c.id))) });
+}
 
 /**
  * Failure of a single classification call.
@@ -49,8 +51,18 @@ export type ClassifyOptions = {
  * Instructions are held apart from the response text and emitted first so the
  * prompt prefix is byte-identical across all 384 calls — the precondition for
  * Gemini's implicit prefix caching to engage at all.
+ *
+ * The category list is interpolated into this prefix rather than appended after
+ * the response, which preserves that property: `config/categories.json` is read
+ * once per run, so the rendered block is identical on every call of that run. It
+ * changes between runs, which is the intent — editing the taxonomy retunes the
+ * classifier without touching code (PRD #1 §Rabbit Holes: Karen's definitive
+ * list is a data change).
  */
-const INSTRUCTIONS = `You are classifying volunteer survey free-text for Junior Achievement.
+function instructionsFor(categories: Category[]): string {
+  const listed = categories.map((c) => `- ${c.id}: ${c.description}`).join("\n");
+
+  return `You are classifying volunteer survey free-text for Junior Achievement.
 
 Your job is to find FORWARD-LOOKING INTENT: a statement about doing something next.
 Enthusiasm is not intent. "I loved it" and "best volunteer experience I've had" are
@@ -67,13 +79,10 @@ signal:
   formulas ("happy to help", "let me know", "anytime", "thanks for everything")
   are "none" unless they name a specific future action.
 
-engagementType (null when signal is "none", otherwise the best fit):
-- volunteer_again: return to volunteer in a similar capacity
-- speaking: present, speak on a panel, share their career
-- refer_colleague: bring or refer another person
-- committee_board: join a committee or board
-- corporate_sponsorship: involve their employer as a sponsor or partner
-- donation: give money or goods
+engagementType (null when signal is "none", otherwise the best fit from this
+list — these are Junior Achievement's own categories, and nothing outside the
+list is a valid answer):
+${listed}
 
 serviceRecovery: true when the sentence reports a bad experience JA should follow
 up on to repair. Independent of signal — a complaint can also carry intent.
@@ -81,13 +90,37 @@ up on to repair. Independent of signal — a complaint can also carry intent.
 confidence: 0 to 1, your confidence in this sentence's signal.
 quote: the sentence text, verbatim.
 
+quotable: true when this sentence could be quoted in a grant application or a
+marketing piece as a volunteer's testimonial, attributed to them by name.
+JA's number-one need is quality quotes.
+- Judge this INDEPENDENTLY of signal. A sentence with no forward-looking intent
+  at all is often the best quote in the survey, and an offer to volunteer again
+  is usually not quotable.
+- Quotable: a positive statement about the experience, the students, or the
+  programme that reads well on its own — "Best volunteer experience I've had in
+  years", "The kids were so engaged the entire time", "The staff were amazing
+  and the students were a joy to work with", "Watching a student realise she
+  could run a business made my year". Vividness is a bonus, not a requirement.
+- Not quotable: content-free replies ("Fine", "Good", "n/a", "Nothing to add"),
+  logistics, complaints, sentences about JA's internal process rather than the
+  experience, and anything that only makes sense beside the question it answers
+  ("More time with the students"). Never invent or tidy the wording.
+- Most sentences are not quotable, but a survey this size should yield real
+  ones. When several sentences in a response say the same thing, mark the
+  strongest and leave the rest false.
+
 Bias toward recall on signal: a missed offer loses a volunteer JA already
 recruited, while an extra flag costs one awkward email.`;
+}
 
-function buildPrompt(response: SurveyResponse, sentences: Sentence[]): string {
+function buildPrompt(
+  response: SurveyResponse,
+  sentences: Sentence[],
+  categories: Category[],
+): string {
   const listed = sentences.map((s) => `[${s.column} #${s.index}] ${s.text}`).join("\n");
 
-  return `${INSTRUCTIONS}
+  return `${instructionsFor(categories)}
 
 --- RESPONSE ${response.responseId} ---
 Program: ${response.program}
@@ -157,9 +190,17 @@ export function partitionByCitation(
  * is banned project-wide (research artifact, migration guides 6.0/7.0).
  *
  * A response with no free text short-circuits to `[]` without a network call.
+ *
+ * `categories` is a required parameter rather than a loaded-inside detail:
+ * `classify` stays pure of I/O, and the categories the model is *told* about are
+ * necessarily the same ones `route` looks owners up by, because both read the
+ * one `Config` the run loaded. Letting this module load its own would make a
+ * prompt/routing taxonomy split possible, and it would present as every lead
+ * landing in `unowned`.
  */
 export function classifyResponse(
   response: SurveyResponse,
+  categories: Category[],
   options: ClassifyOptions = {},
 ): Effect.Effect<SentenceVerdict[], ClassifyError> {
   const sentences = segmentResponse(response);
@@ -169,24 +210,41 @@ export function classifyResponse(
     try: () =>
       generateText({
         model: google(options.model ?? DEFAULT_MODEL),
-        output: Output.object({ schema: ClassificationSchema }),
+        output: Output.object({ schema: classificationSchemaFor(categories) }),
         providerOptions: { google: { thinkingLevel: "low" } },
-        prompt: buildPrompt(response, sentences),
+        prompt: buildPrompt(response, sentences, categories),
       }),
     catch: (cause) => new ClassifyError({ responseId: response.responseId, reason: String(cause) }),
   }).pipe(
     Effect.flatMap((result) => {
       const { addressable, unaddressable } = partitionByCitation(result.output.verdicts, sentences);
 
-      // The discard was previously silent. It is rare and benign when it fires
-      // once, and a signal that the prompt or the segmentation has drifted when
-      // it fires often — which nobody can notice if it never says anything.
-      // Slice #4 turns this into a counted tag in run.json.
-      return unaddressable.length === 0
+      // Both discards were previously silent. Each is rare and benign when it
+      // fires once, and a signal that the prompt or the segmentation has
+      // drifted when it fires often — which nobody can notice if it never says
+      // anything. Slice #4 turns these into counted tags in run.json.
+      const warnings: string[] = [];
+      if (unaddressable.length > 0) {
+        warnings.push(
+          `dropped ${unaddressable.length} verdict(s) citing a sentence that was not sent`,
+        );
+      }
+
+      // `quotable: null` from a live call means the model declined to judge,
+      // which `extractQuotes` reads as "no quote". Left silent, a prompt or
+      // provider change that stopped eliciting the field would present as an
+      // empty quotes document — indistinguishable from an export with nothing
+      // worth quoting in it, and Karen's top need failing quietly.
+      const unjudged = addressable.filter((v) => v.quotable === null).length;
+      if (unjudged > 0) {
+        warnings.push(`${unjudged} verdict(s) came back with no quotability judgement`);
+      }
+
+      return warnings.length === 0
         ? Effect.succeed(addressable)
-        : Effect.logWarning(
-            `${response.responseId}: dropped ${unaddressable.length} verdict(s) citing a sentence that was not sent`,
-          ).pipe(Effect.as(addressable));
+        : Effect.logWarning(`${response.responseId}: ${warnings.join("; ")}`).pipe(
+            Effect.as(addressable),
+          );
     }),
   );
 }

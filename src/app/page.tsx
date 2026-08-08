@@ -181,7 +181,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
             <span className={styles.navItemCount}>{signalLeads.length}</span>
           </button>
           <p className={styles.navNote}>
-            County × program routing is not built. Every lead below lands in one placeholder queue.
+            Leads route by (category, county) from the example config. Owners are inferred
+            placeholders, not JA-confirmed.
           </p>
         </nav>
 
@@ -240,12 +241,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
             <p className={`${styles.banner} ${styles.bannerAlert}`}>
               <span className={styles.bannerLabel}>Unowned</span>
               <span className={styles.bannerBody}>
-                {run.counts.routed} of {run.counts.routed} leads have no confirmed JA owner yet.{" "}
+                {run.counts.unowned} of {run.counts.routed} leads have no confirmed JA owner yet.{" "}
                 {sentCount > 0
                   ? `${sentCount} marked sent by hand — the tool sends nothing itself.`
                   : "Nothing has been sent."}
               </span>
             </p>
+            {run.counts.unmapped > 0 ? (
+              <p className={`${styles.banner} ${styles.bannerWarn}`}>
+                <span className={styles.bannerLabel}>Unmapped</span>
+                <span className={styles.bannerBody}>
+                  {run.counts.unmapped} lead{run.counts.unmapped === 1 ? "" : "s"} at a school the
+                  county lookup does not cover — add the row, not a guess.
+                </span>
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -315,6 +325,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
           <LeadList
             leads={signalLeads}
             teams={run.teams}
+            categories={run.categories}
             runId={run.generatedAt}
             sentIds={[...sent]}
           />

@@ -12,6 +12,7 @@ function classMetrics(className: string, overrides: Partial<ClassMetrics> = {}):
     recall: 1,
     support: 1,
     unmeasurable: true,
+    unmeasurableReason: "low-support",
     ...overrides,
   };
 }
@@ -34,8 +35,17 @@ function run(overrides: Record<string, unknown> = {}) {
     configSource: "config/teams.example.json",
     recipients: [],
     teams: [],
+    categories: [],
+    counties: [],
     partial: true,
-    counts: { responses: 0, routed: 0, unowned: 0, multiIntent: 0, serviceRecovery: 0 },
+    counts: {
+      responses: 0,
+      routed: 0,
+      unowned: 0,
+      unmapped: 0,
+      multiIntent: 0,
+      serviceRecovery: 0,
+    },
     leads: [],
     eval: null,
     ...overrides,

@@ -12,6 +12,7 @@ function verdict(overrides: Partial<SentenceVerdict> = {}): SentenceVerdict {
     engagementType: null,
     confidence: 0.9,
     serviceRecovery: false,
+    quotable: null,
     ...overrides,
   };
 }
@@ -38,6 +39,9 @@ function lead(overrides: Partial<RoutedLead> = {}): RoutedLead {
     ],
     teamId: "placeholder-team",
     recipientIds: ["recipient-placeholder"],
+    county: "Allen",
+    school: "Wayne HS",
+    submittedAt: "2026-01-15T20:15",
     name: "Lucia Nunez",
     email: "lucia@example.com",
     employer: "Bluffton Steel Works",

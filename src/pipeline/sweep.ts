@@ -2,6 +2,7 @@ import { Effect, Schedule } from "effect";
 import type { Config } from "../config/load";
 import { aggregate } from "./aggregate";
 import { type ClassifyError, classifyResponse } from "./classify";
+import { resolveCounty } from "./county";
 import type { SurveyResponse } from "./ingest";
 import { type RoutedLead, route } from "./route";
 
@@ -69,7 +70,7 @@ export function sweep(
   let done = 0;
 
   const classifyOne = (response: SurveyResponse) => {
-    const attempt = classifyResponse(response);
+    const attempt = classifyResponse(response, config.categories);
     return retries > 0
       ? Effect.retry(attempt, {
           schedule: Schedule.exponential("500 millis").pipe(Schedule.jittered),
@@ -81,7 +82,14 @@ export function sweep(
 
   const one = (response: SurveyResponse) =>
     classifyOne(response).pipe(
-      Effect.map((verdicts) => route(aggregate(response.responseId, verdicts), response, config)),
+      Effect.map((verdicts) =>
+        route(
+          aggregate(response.responseId, verdicts),
+          response,
+          resolveCounty(response.school, config),
+          config,
+        ),
+      ),
       Effect.catchAll((error) => {
         const tag = tagOf(error);
         failures[tag] = (failures[tag] ?? 0) + 1;

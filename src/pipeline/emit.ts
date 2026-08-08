@@ -2,8 +2,8 @@ import { writeFile } from "node:fs/promises";
 import { Data, Effect } from "effect";
 import type { Config } from "../config/load";
 import { RUN_PATH } from "../run/read";
-import type { EvalRun, RunCounts, RunFile } from "../run/run-file";
-import { isUnowned, type RoutedLead } from "./route";
+import { type EvalRun, parseRun, type RunCounts, type RunFile } from "../run/run-file";
+import { isUnmapped, isUnowned, type RoutedLead } from "./route";
 
 export class EmitError extends Data.TaggedError("EmitError")<{
   readonly path: string;
@@ -34,6 +34,7 @@ function count(leads: RoutedLead[]): RunCounts {
     responses: leads.length,
     routed: leads.filter((l) => l.signal !== "none").length,
     unowned: leads.filter(isUnowned).length,
+    unmapped: leads.filter(isUnmapped).length,
     multiIntent: leads.filter((l) => l.multiIntent).length,
     serviceRecovery: leads.filter((l) => l.serviceRecovery).length,
   };
@@ -61,14 +62,30 @@ export function writeRun(
 ): Effect.Effect<void, EmitError> {
   const path = options.path ?? RUN_PATH;
 
+  const { sources } = options.config;
+
   const run: RunFile = {
     generatedAt: options.generatedAt,
-    configSource: options.config.source,
+    // Three files now, so this is the set rather than the one. Joined into a
+    // string rather than made an object because the machine-readable half of
+    // "is this a placeholder" is the per-row `inferred` flag below — this field
+    // is for a human reading the header.
+    configSource: [sources.teams, sources.categories, sources.counties].join(", "),
     recipients: options.config.recipients,
     teams: options.config.teams.map((team) => ({
       id: team.id,
       label: team.label,
       inferred: team.inferred ?? false,
+    })),
+    categories: options.config.categories.map((category) => ({
+      id: category.id,
+      label: category.label,
+      inferred: category.inferred ?? false,
+    })),
+    counties: options.config.counties.map((row) => ({
+      school: row.school,
+      county: row.county,
+      inferred: row.inferred ?? false,
     })),
     partial: options.partial ?? false,
     counts: count(leads),
@@ -76,8 +93,22 @@ export function writeRun(
     eval: options.eval ?? null,
   };
 
-  return Effect.tryPromise({
-    try: () => writeFile(path, `${JSON.stringify(run, null, 2)}\n`, "utf8"),
+  // Validated on the way out, not only on the way back in. `parseRun` already
+  // guards the app, but a run that fails it is a file the reader will reject —
+  // and a sweep that discovers that after 384 model calls has paid for the
+  // answer twice. This is also the only place the category cross-check can fire
+  // before the cost is sunk: it catches a prompt whose taxonomy has drifted from
+  // the routing config, which is otherwise invisible until every lead lands in
+  // `unowned`.
+  return Effect.try({
+    try: () => parseRun(run),
     catch: (cause) => new EmitError({ path, reason: String(cause) }),
-  });
+  }).pipe(
+    Effect.flatMap(() =>
+      Effect.tryPromise({
+        try: () => writeFile(path, `${JSON.stringify(run, null, 2)}\n`, "utf8"),
+        catch: (cause) => new EmitError({ path, reason: String(cause) }),
+      }),
+    ),
+  );
 }

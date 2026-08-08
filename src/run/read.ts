@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { parseRun, type RunFile } from "./run-file";
+import { parseRun, type RunFile, RunFileError } from "./run-file";
 
 export const RUN_PATH = "run.json";
 
@@ -26,14 +26,17 @@ export const UPLOADED_RUN_PATH = "run.uploaded.json";
  * Read the uploaded run, if one exists.
  *
  * `null` for "nobody has uploaded anything" is a real state the page renders
- * (no second queue in the sidebar), unlike a malformed committed run — a parse
- * failure here still rejects for the same reason `readRun` does.
+ * (no second queue in the sidebar). A file that no longer matches the schema
+ * is treated the same way: `writeRun` produces valid files by construction,
+ * so a parse failure here means stale state left over from before a schema
+ * change — demo debris that must not take the committed run down with it.
  */
 export async function readUploadedRun(): Promise<RunFile | null> {
   try {
     return await readRun(UPLOADED_RUN_PATH);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    if (error instanceof RunFileError) return null;
     throw error;
   }
 }

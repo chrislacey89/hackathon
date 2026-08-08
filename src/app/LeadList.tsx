@@ -1,21 +1,12 @@
 "use client";
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
-import type { EngagementType, FreeTextColumn } from "../domain/engagement";
+import type { FreeTextColumn } from "../domain/engagement";
 import type { RoutedLead } from "../pipeline/route";
 import { isBuried, leadContext } from "../run/lead-context";
-import type { RunTeam } from "../run/run-file";
+import type { RunCategory, RunTeam } from "../run/run-file";
 import { setSent } from "./actions";
 import styles from "./page.module.css";
-
-const TYPE_LABELS = {
-  volunteer_again: "Volunteer again",
-  committee_board: "Committee / board",
-  corporate_sponsorship: "Corporate sponsorship",
-  refer_colleague: "Refer a colleague",
-  speaking: "Speaking",
-  donation: "Donation",
-} as const satisfies Record<EngagementType, string>;
 
 const COLUMN_LABELS = {
   q5_what_went_well: "What went well?",
@@ -30,12 +21,19 @@ type FilterKey = "all" | "buried" | "high" | "unsent";
 export function LeadList({
   leads,
   teams,
+  categories,
   runId,
   sentIds,
 }: {
   /** Pre-ranked by the server: strongest signal first, then confidence. */
   leads: RoutedLead[];
   teams: RunTeam[];
+  /**
+   * The run's own taxonomy. Labels come from here, not a hardcoded map —
+   * categories are config-sourced, and `parseRun` guarantees every id a lead
+   * cites is present, so the raw-id fallback below is for totality only.
+   */
+  categories: RunCategory[];
   /** `generatedAt` of the run on screen — sent marks are scoped to it. */
   runId: string;
   sentIds: string[];
@@ -149,7 +147,10 @@ export function LeadList({
 
                 <div className={styles.leadMeta}>
                   <span className={styles.leadIntent}>
-                    {lead.engagementType ? TYPE_LABELS[lead.engagementType] : "Signal only"}
+                    {lead.engagementType
+                      ? (categories.find((c) => c.id === lead.engagementType)?.label ??
+                        lead.engagementType)
+                      : "Signal only"}
                     {lead.multiIntent ? " + more" : ""}
                   </span>
                   <span className={styles.leadWho}>

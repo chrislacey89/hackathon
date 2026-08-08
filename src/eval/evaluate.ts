@@ -21,15 +21,25 @@ export type ClassMetrics = {
   recall: number;
   support: number;
   /**
-   * True when `support` is too small for the rates above to mean anything.
+   * True when the rates above cannot be read as a property of the classifier.
    *
-   * PRD #1 §Rabbit Holes drops per-type accuracy as unmeasurable — 1 to 4
-   * examples per class — and requires it not be "quietly reported as if real".
-   * Reporting the numbers with this flag attached is how that requirement is
-   * met structurally: a consumer of `run.json` cannot read the rate without
-   * also reading the disclaimer, which a doc comment could not guarantee.
+   * PRD #1 §Rabbit Holes drops per-type accuracy as unmeasurable and requires
+   * it not be "quietly reported as if real". Reporting the numbers with this
+   * flag attached is how that requirement is met structurally: a consumer of
+   * `run.json` cannot read the rate without also reading the disclaimer, which
+   * a doc comment could not guarantee.
    */
   unmeasurable: boolean;
+  /**
+   * Why, or `null` when the metric is readable.
+   *
+   * The two reasons fail differently and need different responses, so
+   * collapsing them into one boolean would print the wrong explanation for
+   * half the cases. `low-support` means gather more labels; `taxonomy-mismatch`
+   * means no number of labels in *this* scheme will help, because the label
+   * vocabulary and the prediction vocabulary are answering different questions.
+   */
+  unmeasurableReason: "low-support" | "taxonomy-mismatch" | null;
 };
 
 /**
@@ -111,6 +121,7 @@ function rate(numerator: number, denominator: number): number {
 
 function metrics(className: string, tp: number, fp: number, fn: number): ClassMetrics {
   const support = tp + fn;
+  const lowSupport = support < MIN_MEASURABLE_SUPPORT;
   return {
     className,
     tp,
@@ -119,7 +130,8 @@ function metrics(className: string, tp: number, fp: number, fn: number): ClassMe
     precision: rate(tp, tp + fp),
     recall: rate(tp, support),
     support,
-    unmeasurable: support < MIN_MEASURABLE_SUPPORT,
+    unmeasurable: lowSupport,
+    unmeasurableReason: lowSupport ? "low-support" : null,
   };
 }
 
@@ -152,6 +164,32 @@ function perClass(pairs: Pair[]): ClassMetrics[] {
     }
     return metrics(className, tp, fp, fn);
   });
+}
+
+/**
+ * True when the labels and the predictions share no class at all.
+ *
+ * Not a low-support problem and not fixable by labelling more rows: it means
+ * the two sides are using different vocabularies, so every pair mismatches by
+ * construction and every rate is 0 for a reason that has nothing to do with the
+ * classifier. This is the state the project is in — the sample was labeled with
+ * the six types `LABELED_SAMPLE_TYPES` pins, and JA's categories share none of
+ * them (#24 §2). Re-labelling against JA's taxonomy is #10's cost to pay.
+ *
+ * Deliberately *disjoint*, not "some class appears on one side only". A class
+ * the model invented and the labels never use is a real finding with real false
+ * positives, and `perClass` reports it on purpose; suppressing per-type metrics
+ * the moment one such class appeared would hide it.
+ *
+ * An empty comparison — nobody named a type — is not disjoint. There is no
+ * taxonomy to mismatch, and flagging it would invent a finding.
+ */
+function taxonomiesDisjoint(pairs: Pair[]): boolean {
+  const actual = new Set(pairs.map((pair) => pair.actual).filter((name) => name !== null));
+  const predicted = new Set(pairs.map((pair) => pair.predicted).filter((name) => name !== null));
+
+  if (actual.size === 0 || predicted.size === 0) return false;
+  return [...predicted].every((name) => !actual.has(name));
 }
 
 function indexById(verdicts: ResponseVerdict[], label: string): Map<string, ResponseVerdict> {
@@ -241,10 +279,22 @@ export function evaluate(input: EvalInput): EvalReport {
     else if (row.serviceRecoveryFlag) recoveryFn++;
   }
 
+  // Only the per-type metrics are touched. Signal is taxonomy-independent by
+  // construction — strong / soft / none survive any category scheme — and it is
+  // the number PRD #1 actually leans on.
+  const typeMetrics = perClass(typePairs);
+  const mismatched = taxonomiesDisjoint(typePairs);
+
   return {
     split,
     signal: perClass(signalPairs),
-    engagementType: perClass(typePairs),
+    engagementType: mismatched
+      ? typeMetrics.map((entry) => ({
+          ...entry,
+          unmeasurable: true,
+          unmeasurableReason: "taxonomy-mismatch" as const,
+        }))
+      : typeMetrics,
     serviceRecovery: metrics("service_recovery", recoveryTp, recoveryFp, recoveryFn),
     baseline: { signal: perClass(baselineSignalPairs) },
     excluded,
