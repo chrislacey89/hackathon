@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SentenceVerdict } from "../domain/engagement";
-import type { ResponseVerdict } from "./aggregate";
+import { aggregate, type ResponseVerdict } from "./aggregate";
 import type { SurveyResponse } from "./ingest";
+import { loadResponses } from "./ingest";
 import {
   appendQuotes,
   collectedKeys,
@@ -16,6 +17,7 @@ import {
   renderQuotesDocument,
   USABLE_HEADING,
 } from "./quotes";
+import { segmentResponse } from "./segment";
 
 function response(overrides: Partial<SurveyResponse> = {}): SurveyResponse {
   return {
@@ -313,5 +315,94 @@ describe("appendQuotes", () => {
 
     expect(added).toHaveLength(1);
     expect(collectedKeys(await readFile(path, "utf8")).size).toBe(1);
+  });
+});
+
+/**
+ * The slice's defining constraint, asserted over the export it ships against
+ * rather than over a fixture.
+ *
+ * The model is stood in for by an adversary that judges *every* sentence in
+ * the export quotable. That is the strongest form of the claim: the consent
+ * filter has to hold when the thing upstream of it is maximally permissive,
+ * not merely when the model happens to be selective. A fixture of three rows
+ * could not distinguish the two.
+ */
+describe("consent over the full survey export", () => {
+  const EXPORT_PATH = "data/volunteer_survey_export.csv";
+
+  async function everythingQuotable(): Promise<{
+    rows: SurveyResponse[];
+    verdicts: ResponseVerdict[];
+  }> {
+    const rows = await Effect.runPromise(loadResponses(EXPORT_PATH));
+    const verdicts = rows.map((row) =>
+      aggregate(
+        row.responseId,
+        segmentResponse(row).map((sentence) => ({
+          column: sentence.column,
+          sentenceIndex: sentence.index,
+          quote: sentence.text,
+          signal: "none" as const,
+          engagementType: null,
+          confidence: 1,
+          serviceRecovery: false,
+          quotable: true,
+        })),
+      ),
+    );
+    return { rows, verdicts };
+  }
+
+  it("reads the export the PRD pins: 384 rows, 234 yes, 46 no, 104 blank", async () => {
+    const { rows } = await everythingQuotable();
+    const tally = (consent: string) => rows.filter((r) => consentOf(r) === consent).length;
+
+    expect(rows).toHaveLength(384);
+    expect(tally("granted")).toBe(234);
+    expect(tally("declined")).toBe(46);
+    expect(tally("needs_check")).toBe(104);
+  });
+
+  it("draws zero quotes from the 46 volunteers who declined contact", async () => {
+    const { rows, verdicts } = await everythingQuotable();
+    const declined = new Set(
+      rows.filter((r) => consentOf(r) === "declined").map((r) => r.responseId),
+    );
+
+    const offending = extractQuotes(rows, verdicts).filter((c) => declined.has(c.responseId));
+
+    expect(declined.size).toBe(46);
+    expect(offending).toEqual([]);
+  });
+
+  it("keeps every blank-consent volunteer, marked for a check rather than dropped", async () => {
+    const { rows, verdicts } = await everythingQuotable();
+    const candidates = extractQuotes(rows, verdicts);
+
+    // Neither used silently nor discarded silently: every response that has
+    // prose and a blank consent is represented, and every one of its quotes
+    // says so.
+    const blankWithProse = rows
+      .filter((r) => consentOf(r) === "needs_check" && segmentResponse(r).length > 0)
+      .map((r) => r.responseId);
+    const represented = new Set(
+      candidates.filter((c) => c.consent === "needs_check").map((c) => c.responseId),
+    );
+
+    expect(blankWithProse.length).toBeGreaterThan(0);
+    expect([...represented].sort()).toEqual([...blankWithProse].sort());
+  });
+
+  it("routes the whole export into exactly two consent groups, losing nobody", async () => {
+    const { rows, verdicts } = await everythingQuotable();
+    const candidates = extractQuotes(rows, verdicts);
+
+    const withProse = rows.filter((r) => segmentResponse(r).length > 0);
+    const accountedFor = new Set(candidates.map((c) => c.responseId));
+    const declined = withProse.filter((r) => consentOf(r) === "declined");
+
+    expect(accountedFor.size + declined.length).toBe(withProse.length);
+    expect(new Set(candidates.map((c) => c.consent))).toEqual(new Set(["granted", "needs_check"]));
   });
 });
