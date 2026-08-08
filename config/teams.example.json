@@ -1,0 +1,60 @@
+{
+  "recipients": [
+    {
+      "id": "recipient-program",
+      "name": "Program Staff Lead (placeholder)",
+      "email": "program-staff@example.org",
+      "role": "Program Manager"
+    },
+    {
+      "id": "recipient-development",
+      "name": "Development Officer (placeholder)",
+      "email": "development@example.org",
+      "role": "Development Officer"
+    },
+    {
+      "id": "recipient-corporate",
+      "name": "Corporate Partnerships Lead (placeholder)",
+      "email": "corporate-partnerships@example.org",
+      "role": "Partnerships Manager"
+    },
+    {
+      "id": "recipient-recruitment",
+      "name": "Volunteer Recruitment Lead (placeholder)",
+      "email": "volunteer-recruitment@example.org",
+      "role": "Volunteer Coordinator"
+    }
+  ],
+  "teams": [
+    {
+      "id": "program-staff",
+      "label": "Program Staff",
+      "owns": ["volunteer_again", "speaking"],
+      "recipientIds": ["recipient-program"],
+      "inferred": true
+    },
+    {
+      "id": "development",
+      "label": "Development",
+      "owns": ["committee_board", "donation"],
+      "recipientIds": ["recipient-development"],
+      "inferred": true
+    },
+    {
+      "id": "corporate-partnerships",
+      "label": "Corporate Partnerships",
+      "owns": ["corporate_sponsorship"],
+      "recipientIds": ["recipient-corporate"],
+      "inferred": false
+    },
+    {
+      "id": "volunteer-recruitment",
+      "label": "Volunteer Recruitment",
+      "owns": ["refer_colleague"],
+      "recipientIds": ["recipient-recruitment"],
+      "inferred": true
+    }
+  ],
+  "nearMissCap": 25,
+  "concurrency": 4
+}
