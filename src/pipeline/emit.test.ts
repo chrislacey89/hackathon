@@ -104,6 +104,41 @@ describe("writeRun", () => {
     expect((await readRun(path)).counts.unowned).toBe(1);
   });
 
+  it("carries the sweep's failure counts, so the report says how the run broke", async () => {
+    // `counts` describes the data; `failures` describes the run that produced
+    // it. A reader seeing "12 leads" needs both to know whether 12 is the
+    // answer or just what survived.
+    const path = await runPath();
+
+    await Effect.runPromise(
+      writeRun([lead()], {
+        path,
+        generatedAt: AT,
+        config: CONFIG,
+        failures: { RateLimited: 2, SchemaInvalid: 1, Transient: 0 },
+        partial: true,
+      }),
+    );
+
+    expect((await readRun(path)).failures).toEqual({
+      RateLimited: 2,
+      SchemaInvalid: 1,
+      Transient: 0,
+    });
+  });
+
+  it("defaults every failure tag to zero rather than omitting the key", async () => {
+    const path = await runPath();
+
+    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT, config: CONFIG }));
+
+    expect((await readRun(path)).failures).toEqual({
+      RateLimited: 0,
+      SchemaInvalid: 0,
+      Transient: 0,
+    });
+  });
+
   it("marks the tracer's run partial, because one response is not the export", async () => {
     const path = await runPath();
 

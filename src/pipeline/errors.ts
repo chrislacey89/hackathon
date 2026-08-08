@@ -1,5 +1,6 @@
 import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
 import { Data } from "effect";
+import type { FailureTag } from "../domain/failure";
 
 /**
  * The failure taxonomy for a classification call.
@@ -30,27 +31,17 @@ export class Transient extends Data.TaggedError("Transient")<{
 export type ClassifyError = RateLimited | SchemaInvalid | Transient;
 
 /**
- * Every tag, in report order. One array so the counter, the zero value, and
- * any future summary read from the same list rather than three copies that can
- * drift — the same single-constant discipline `ENGAGEMENT_TYPES` uses.
+ * The tag vocabulary and the per-run tally live in the shared domain, because
+ * `run.json` carries the counts and the Next.js app must be able to read their
+ * schema without importing `effect` or the AI SDK. Re-exported here so pipeline
+ * code still has one import for "everything about failures".
  */
-export const FAILURE_TAGS = ["RateLimited", "SchemaInvalid", "Transient"] as const;
-
-export type FailureTag = (typeof FAILURE_TAGS)[number];
-
-/**
- * Terminal failures per tag for one run.
- *
- * Counts rows that ended in failure, not attempts that failed. A row that hit
- * a 429, backed off, and succeeded is not a failure — it is the retry policy
- * working, and counting it would make `run.json` claim lost data that is
- * sitting right there in `verdicts`.
- */
-export type FailureCounts = Record<FailureTag, number>;
-
-export function emptyFailureCounts(): FailureCounts {
-  return { RateLimited: 0, SchemaInvalid: 0, Transient: 0 };
-}
+export {
+  emptyFailureCounts,
+  FAILURE_TAGS,
+  type FailureCounts,
+  type FailureTag,
+} from "../domain/failure";
 
 /**
  * Tags worth a second attempt, listed positively.

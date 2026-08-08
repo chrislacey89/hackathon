@@ -24,6 +24,11 @@
     "multiIntent": 0,
     "serviceRecovery": 0
   },
+  "failures": {
+    "RateLimited": 0,
+    "SchemaInvalid": 0,
+    "Transient": 0
+  },
   "leads": [
     {
       "responseId": "JA-24378",
