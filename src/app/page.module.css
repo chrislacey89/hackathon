@@ -148,3 +148,125 @@
   padding: 1.25rem;
   color: var(--ink-soft);
 }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1px;
+  margin-bottom: 2rem;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+}
+
+.statValue {
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.statValueAccent {
+  color: var(--accent);
+}
+
+.statLabel {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.sectionTitle {
+  margin: 2.5rem 0 0.5rem;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.sectionNote {
+  margin: 0 0 1rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  max-width: 46rem;
+}
+
+.evalBlock {
+  padding: 1.25rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.evalBlock .sectionTitle {
+  margin-top: 0;
+}
+
+.metrics {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metrics td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.metrics tr:last-child td {
+  border-bottom: 0;
+}
+
+.baselineCell {
+  color: var(--ink-soft);
+}
+
+.unmeasurable {
+  color: var(--warn);
+  font-size: 0.75rem;
+}
+
+.queue {
+  margin-bottom: 1.25rem;
+}
+
+.copyButton {
+  flex: none;
+  padding: 0.4375rem 0.875rem;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  background: var(--accent-soft);
+}
+
+.copyButtonDone {
+  background: var(--accent);
+  color: #fff;
+}
