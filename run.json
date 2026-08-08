@@ -124,6 +124,11 @@
     "serviceRecovery": 0,
     "unmapped": 0
   },
+  "failures": {
+    "RateLimited": 0,
+    "SchemaInvalid": 0,
+    "Transient": 0
+  },
   "leads": [
     {
       "responseId": "JA-24378",

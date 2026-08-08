@@ -3,7 +3,7 @@ import type { Config } from "../config/load";
 import type { ResponseVerdict } from "./aggregate";
 import { resolveCounty } from "./county";
 import type { SurveyResponse } from "./ingest";
-import { dispositionOf, isUnmapped, isUnowned, route } from "./route";
+import { dispositionOf, isUnmapped, isUnowned, route, routeAll } from "./route";
 
 const CONFIG: Config = {
   sources: { teams: "teams.json", categories: "categories.json", counties: "counties.json" },
@@ -252,5 +252,52 @@ describe("dispositionOf", () => {
     for (const lead of cases) {
       expect([isUnowned(lead), isUnmapped(lead)].filter(Boolean).length).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+/**
+ * Re-attaching each verdict to the volunteer it came from.
+ *
+ * The sweep drops rows that exhausted their retries, so its verdict list is
+ * shorter than the row list and the two no longer line up by position. Pairing
+ * by index would then shift every lead after the first failure onto the next
+ * volunteer's name and email — a lead that still looks entirely credible, sent
+ * to the wrong person about something they never said.
+ */
+describe("routeAll", () => {
+  it("keeps each verdict with its own volunteer when a row in the middle is missing", () => {
+    const rows = [
+      response({ responseId: "JA-1", volunteerName: "Ana", volunteerEmail: "ana@x.com" }),
+      response({ responseId: "JA-2", volunteerName: "Bo", volunteerEmail: "bo@x.com" }),
+      response({ responseId: "JA-3", volunteerName: "Cy", volunteerEmail: "cy@x.com" }),
+    ];
+    // JA-2 exhausted its retries and never produced a verdict.
+    const verdicts = [verdict({ responseId: "JA-1" }), verdict({ responseId: "JA-3" })];
+
+    const leads = routeAll(rows, verdicts, CONFIG);
+
+    expect(leads.map((l) => [l.responseId, l.name, l.email])).toEqual([
+      ["JA-1", "Ana", "ana@x.com"],
+      ["JA-3", "Cy", "cy@x.com"],
+    ]);
+  });
+
+  it("pairs by id rather than position when the verdicts come back reordered", () => {
+    const rows = [
+      response({ responseId: "JA-1", volunteerName: "Ana" }),
+      response({ responseId: "JA-2", volunteerName: "Bo" }),
+    ];
+    const verdicts = [verdict({ responseId: "JA-2" }), verdict({ responseId: "JA-1" })];
+
+    const leads = routeAll(rows, verdicts, CONFIG);
+
+    expect(leads.map((l) => [l.responseId, l.name])).toEqual([
+      ["JA-2", "Bo"],
+      ["JA-1", "Ana"],
+    ]);
+  });
+
+  it("returns no leads for no verdicts", () => {
+    expect(routeAll([response()], [], CONFIG)).toEqual([]);
   });
 });

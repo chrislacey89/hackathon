@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ENGAGEMENT_SIGNALS, FREE_TEXT_COLUMNS, SentenceVerdictSchema } from "../domain/engagement";
+import { FailureCountsSchema } from "../domain/failure";
 import type { EvalReport } from "../eval/evaluate";
 import type { RoutedLead } from "../pipeline/route";
 
@@ -170,6 +171,15 @@ const RunFileShape = z.object({
    */
   partial: z.boolean(),
   counts: RunCountsSchema,
+  /**
+   * Why the run is partial, by tag.
+   *
+   * `counts` describes the data; `failures` describes the run that produced it.
+   * A reader seeing "12 leads from 384 responses" cannot tell whether 12 is the
+   * answer or merely what survived without this, and the difference is a
+   * volunteer who offered and was never called.
+   */
+  failures: FailureCountsSchema,
   leads: z.array(RoutedLeadSchema),
   /**
    * How this run scored against the labeled sample, or `null` when it was

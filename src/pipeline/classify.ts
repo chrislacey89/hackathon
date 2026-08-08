@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
-import { Data, Effect } from "effect";
+import { Effect } from "effect";
 import { z } from "zod";
 import type { Category } from "../config/load";
 import {
@@ -10,6 +10,7 @@ import {
   SentenceVerdictSchema,
   sentenceVerdictSchemaFor,
 } from "../domain/engagement";
+import { type ClassifyError, classifyCause } from "./errors";
 import type { SurveyResponse } from "./ingest";
 import { type Sentence, segmentResponse } from "./segment";
 
@@ -29,15 +30,12 @@ function classificationSchemaFor(categories: Category[]) {
 /**
  * Failure of a single classification call.
  *
- * Deliberately one tag for the tracer. Slice #4 owns the real taxonomy
- * (`RateLimited` / `SchemaInvalid` / `Transient` in `src/pipeline/errors.ts`),
- * because the taxonomy only earns its keep once there is a retry predicate to
- * discriminate on and a sweep to count into. One call has neither.
+ * The tracer's single `ClassifyError` tag is gone: the taxonomy it deferred to
+ * slice #4 now exists in `./errors`, and the retry predicate that discriminates
+ * on it is what makes the distinction pay. Re-exported here so callers keep
+ * importing their error type from the module that produces it.
  */
-export class ClassifyError extends Data.TaggedError("ClassifyError")<{
-  readonly responseId: string;
-  readonly reason: string;
-}> {}
+export type { ClassifyError };
 
 /** Non-preview Flash, per the research artifact. Overridable for A/B against a Pro tier. */
 export const DEFAULT_MODEL = "gemini-3.6-flash";
@@ -214,7 +212,11 @@ export function classifyResponse(
         providerOptions: { google: { thinkingLevel: "low" } },
         prompt: buildPrompt(response, sentences, categories),
       }),
-    catch: (cause) => new ClassifyError({ responseId: response.responseId, reason: String(cause) }),
+    // The cause is put into the taxonomy *here*, at the only point that still
+    // holds the provider's own error object — its status code and its
+    // `retry-after` header. Stringifying it first and re-deriving the class
+    // downstream would mean parsing our own error message.
+    catch: (cause) => classifyCause(response.responseId, cause),
   }).pipe(
     Effect.flatMap((result) => {
       const { addressable, unaddressable } = partitionByCitation(result.output.verdicts, sentences);

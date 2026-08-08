@@ -46,6 +46,9 @@ function run(overrides: Record<string, unknown> = {}) {
       multiIntent: 0,
       serviceRecovery: 0,
     },
+    // Required, like `counts` and unlike `eval`: an absent tally is
+    // indistinguishable from a clean run, so the file always states it (#4).
+    failures: { RateLimited: 0, SchemaInvalid: 0, Transient: 0 },
     leads: [],
     eval: null,
     ...overrides,
@@ -127,14 +130,19 @@ describe("withEval", () => {
    * Slices #4, #15, and #19 all add fields to `run.json`. The first one that
    * lands would be deleted by the next `pnpm eval`, with no error and no diff
    * anyone reads before committing.
+   *
+   * #4 has since landed, and its `failures` is now a known, validated field —
+   * so it no longer probes anything and has been swapped out. The `ledger` key
+   * stands in for #15, which is still open. Note that this test's original
+   * guess at #4's shape was `{ rateLimited: 3 }` and the shipped one is
+   * `{ RateLimited, SchemaInvalid, Transient }`: a placeholder for an
+   * unlanded slice is a guess, which is exactly why the preserved key has to
+   * be one the schema genuinely does not know rather than one we predicted.
    */
   it("keeps fields the schema does not know about", () => {
-    const updated = withEval(
-      { ...run(), ledger: { entries: 12 }, failures: { rateLimited: 3 } },
-      null,
-    );
+    const updated = withEval({ ...run(), ledger: { entries: 12 } }, null);
 
-    expect(updated).toMatchObject({ ledger: { entries: 12 }, failures: { rateLimited: 3 } });
+    expect(updated).toMatchObject({ ledger: { entries: 12 } });
   });
 
   it("refuses to produce a run that would not parse", () => {

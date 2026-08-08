@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { Data, Effect } from "effect";
 import type { Config } from "../config/load";
+import { emptyFailureCounts, type FailureCounts } from "../domain/failure";
 import { RUN_PATH } from "../run/read";
 import { type EvalRun, parseRun, type RunCounts, type RunFile } from "../run/run-file";
 import { isUnmapped, isUnowned, type RoutedLead } from "./route";
@@ -18,6 +19,8 @@ export type WriteRunOptions = {
   config: Config;
   /** True when this run does not cover the whole export. */
   partial?: boolean;
+  /** Terminal failures by tag, from the sweep. Absent means nothing failed. */
+  failures?: FailureCounts;
   /**
    * How this run scored against the labeled sample.
    *
@@ -89,6 +92,7 @@ export function writeRun(
     })),
     partial: options.partial ?? false,
     counts: count(leads),
+    failures: options.failures ?? emptyFailureCounts(),
     leads,
     eval: options.eval ?? null,
   };
