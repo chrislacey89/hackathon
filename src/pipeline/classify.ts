@@ -97,16 +97,50 @@ Sentences to classify:
 ${listed}`;
 }
 
+export type CitationPartition = {
+  /** Verdicts citing a sentence we actually sent. */
+  addressable: SentenceVerdict[];
+  /** Verdicts citing a sentence that does not exist. Never reaches a queue. */
+  unaddressable: SentenceVerdict[];
+};
+
 /**
- * Drop verdicts that do not address a sentence we actually sent.
+ * Split model output by whether each verdict cites a sentence we actually sent.
  *
- * A hallucinated `(column, sentenceIndex)` pair would attach a quote to the
- * wrong question in the queue UI, which is worse than no lead at all — the
- * citation is the thing a staffer trusts instead of opening the raw export.
+ * This is the guard between a hallucinating model and the citation a JA staffer
+ * trusts instead of opening the raw export. A verdict claiming
+ * `q6_what_could_improve #0` when q6 was blank would attach a real quote to the
+ * wrong survey question — worse than no lead at all, because the lead still
+ * looks credible.
+ *
+ * Exported, and returning both halves rather than filtering in place, for two
+ * reasons. It is the only part of `classify` that is pure and therefore the
+ * only part testable without a live call — and the discards are a reliability
+ * fact, not noise: slice #4 counts failures by tag for `run.json`, and this is
+ * the tag it will need. Returning them now means #4 reads this function rather
+ * than rewriting it.
+ *
+ * Matching is on the `(column, index)` pair, never the index alone. The two
+ * are separately plausible — index 2 exists in q7 while q5 has only one
+ * sentence — so a cross-column citation is exactly the confusion a
+ * single-axis check would wave through.
  */
-function keepAddressable(verdicts: SentenceVerdict[], sentences: Sentence[]): SentenceVerdict[] {
-  const addressable = new Set(sentences.map((s) => `${s.column}#${s.index}`));
-  return verdicts.filter((v) => addressable.has(`${v.column}#${v.sentenceIndex}`));
+export function partitionByCitation(
+  verdicts: SentenceVerdict[],
+  sentences: Sentence[],
+): CitationPartition {
+  const sent = new Set(sentences.map((s) => `${s.column}#${s.index}`));
+  const addressable: SentenceVerdict[] = [];
+  const unaddressable: SentenceVerdict[] = [];
+
+  for (const verdict of verdicts) {
+    const bucket = sent.has(`${verdict.column}#${verdict.sentenceIndex}`)
+      ? addressable
+      : unaddressable;
+    bucket.push(verdict);
+  }
+
+  return { addressable, unaddressable };
 }
 
 /**
@@ -140,5 +174,19 @@ export function classifyResponse(
         prompt: buildPrompt(response, sentences),
       }),
     catch: (cause) => new ClassifyError({ responseId: response.responseId, reason: String(cause) }),
-  }).pipe(Effect.map((result) => keepAddressable(result.output.verdicts, sentences)));
+  }).pipe(
+    Effect.flatMap((result) => {
+      const { addressable, unaddressable } = partitionByCitation(result.output.verdicts, sentences);
+
+      // The discard was previously silent. It is rare and benign when it fires
+      // once, and a signal that the prompt or the segmentation has drifted when
+      // it fires often — which nobody can notice if it never says anything.
+      // Slice #4 turns this into a counted tag in run.json.
+      return unaddressable.length === 0
+        ? Effect.succeed(addressable)
+        : Effect.logWarning(
+            `${response.responseId}: dropped ${unaddressable.length} verdict(s) citing a sentence that was not sent`,
+          ).pipe(Effect.as(addressable));
+    }),
+  );
 }
