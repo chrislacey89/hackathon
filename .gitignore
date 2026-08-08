@@ -16,9 +16,13 @@ out/
 .env.local
 .env*.local
 
+# Real recipient config — PII. config/teams.example.json is committed instead.
+config/teams.json
+
 # Build / cache
 dist/
 *.tsbuildinfo
+next-env.d.ts
 
 # OS
 .DS_Store

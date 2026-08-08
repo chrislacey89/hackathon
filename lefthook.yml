@@ -1,9 +1,16 @@
-# Pre-push hook for `vitest run` and `tsc --noEmit` should be added once a test
-# suite and tsconfig exist. Typecheck is deliberately kept out of pre-commit —
-# too slow for the commit loop.
+# Typecheck and tests are deliberately kept out of pre-commit — too slow for the
+# commit loop. They run pre-push instead, now that a tsconfig and test suite exist.
 pre-commit:
   commands:
     check:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
       run: pnpm biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
       stage_fixed: true
+
+pre-push:
+  parallel: true
+  commands:
+    typecheck:
+      run: pnpm run typecheck
+    test:
+      run: pnpm run test
