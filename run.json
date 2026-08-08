@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-08T16:33:34.753Z",
+  "generatedAt": "2026-08-08T16:36:03.441Z",
   "configSource": "teams.example.json",
   "recipients": [
     {
@@ -62,8 +62,10 @@
       "responseId": "JA-24378",
       "signal": "strong",
       "engagementType": "volunteer_again",
-      "engagementTypes": ["volunteer_again"],
-      "confidence": 1,
+      "engagementTypes": [
+        "volunteer_again"
+      ],
+      "confidence": 0.95,
       "quote": "That said, put me down for next fall.",
       "sourceColumn": "q6_what_could_improve",
       "serviceRecovery": false,
@@ -75,7 +77,7 @@
           "quote": "Staff support was excellent.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 1,
+          "confidence": 0.95,
           "serviceRecovery": false
         },
         {
@@ -93,7 +95,7 @@
           "quote": "That said, put me down for next fall.",
           "signal": "strong",
           "engagementType": "volunteer_again",
-          "confidence": 1,
+          "confidence": 0.95,
           "serviceRecovery": false
         },
         {
@@ -102,7 +104,7 @@
           "quote": "Really well run.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 1,
+          "confidence": 0.95,
           "serviceRecovery": false
         },
         {
@@ -111,12 +113,14 @@
           "quote": "Thank you for everything you do.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 1,
+          "confidence": 0.95,
           "serviceRecovery": false
         }
       ],
       "teamId": "program-staff",
-      "recipientIds": ["recipient-program"],
+      "recipientIds": [
+        "recipient-program"
+      ],
       "name": "Lucia Nunez",
       "email": "lucia.nunez@bluffton.com",
       "employer": "Bluffton Steel Works",
