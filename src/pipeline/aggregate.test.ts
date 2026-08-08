@@ -11,6 +11,7 @@ function verdict(overrides: Partial<SentenceVerdict> = {}): SentenceVerdict {
     engagementType: null,
     confidence: 0.9,
     serviceRecovery: false,
+    quotable: false,
     ...overrides,
   };
 }

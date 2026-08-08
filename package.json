@@ -13,6 +13,7 @@
     "test": "vitest run",
     "tracer": "node --import tsx --env-file-if-exists=.env.local src/pipeline/tracer.ts",
     "sweep": "node --import tsx --env-file-if-exists=.env.local src/pipeline/sweep-run.ts",
+    "eval": "node --import tsx --env-file-if-exists=.env.local src/eval/report.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"

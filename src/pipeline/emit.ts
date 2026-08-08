@@ -3,7 +3,7 @@ import { Data, Effect } from "effect";
 import type { Config } from "../config/load";
 import { emptyFailureCounts, type FailureCounts } from "../domain/failure";
 import { RUN_PATH } from "../run/read";
-import type { RunCounts, RunFile } from "../run/run-file";
+import type { EvalRun, RunCounts, RunFile } from "../run/run-file";
 import { isUnowned, type RoutedLead } from "./route";
 
 export class EmitError extends Data.TaggedError("EmitError")<{
@@ -21,6 +21,15 @@ export type WriteRunOptions = {
   partial?: boolean;
   /** Terminal failures by tag, from the sweep. Absent means nothing failed. */
   failures?: FailureCounts;
+  /**
+   * How this run scored against the labeled sample.
+   *
+   * Defaults to `null` — "not scored" — rather than to an empty report,
+   * because a caller that forgot to score should produce a file that says so
+   * rather than one full of zeroes indistinguishable from a failing model.
+   * `pnpm eval` fills it in once a run's predictions cover the labeled set.
+   */
+  eval?: EvalRun | null;
 };
 
 function count(leads: RoutedLead[]): RunCounts {
@@ -68,6 +77,7 @@ export function writeRun(
     counts: count(leads),
     failures: options.failures ?? emptyFailureCounts(),
     leads,
+    eval: options.eval ?? null,
   };
 
   return Effect.tryPromise({

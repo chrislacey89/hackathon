@@ -62,6 +62,10 @@ function verdict(overrides: Partial<SentenceVerdict> = {}): SentenceVerdict {
     engagementType: "volunteer_again",
     confidence: 0.9,
     serviceRecovery: false,
+    // The sweep is indifferent to quotability — it carries verdicts through
+    // without reading them — but the field is required, so the fixture states
+    // it rather than leaving the shape incomplete.
+    quotable: null,
     ...overrides,
   };
 }

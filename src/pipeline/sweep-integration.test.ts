@@ -38,6 +38,7 @@ function offer(): SentenceVerdict[] {
       engagementType: "volunteer_again",
       confidence: 0.95,
       serviceRecovery: false,
+      quotable: null,
     },
   ];
 }
