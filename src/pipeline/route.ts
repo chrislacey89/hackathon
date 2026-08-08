@@ -54,6 +54,37 @@ export function isUnowned(lead: RoutedLead): boolean {
  * Dropping it here would make a config gap look like an absence of intent,
  * and nothing downstream could tell the difference.
  */
+/**
+ * Route a whole sweep's worth of verdicts, pairing each back to its volunteer.
+ *
+ * By id, never by position. The sweep omits rows that exhausted their retries,
+ * so its verdict list is shorter than the row list — and pairing by index would
+ * shift every lead after the first failure onto the next volunteer's name and
+ * email. That lead still looks entirely credible in a queue, which is what
+ * makes it worse than a lead that is simply missing.
+ *
+ * A verdict whose response is unknown throws rather than being dropped. It
+ * cannot happen from a sweep over these rows, so if it does, ingest and the
+ * sweep disagree about what was processed — a bug to surface, not a row to
+ * quietly skip.
+ */
+export function routeAll(
+  responses: SurveyResponse[],
+  verdicts: ResponseVerdict[],
+  config: Config,
+): RoutedLead[] {
+  const byId = new Map(responses.map((response) => [response.responseId, response]));
+
+  return verdicts.map((verdict) => {
+    const response = byId.get(verdict.responseId);
+    if (response === undefined) {
+      throw new Error(`verdict for unknown response ${verdict.responseId}`);
+    }
+
+    return route(verdict, response, config);
+  });
+}
+
 export function route(
   verdict: ResponseVerdict,
   response: SurveyResponse,
