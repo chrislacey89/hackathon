@@ -1,26 +1,75 @@
+/*
+ * Junior Achievement of Northern Indiana — product palette.
+ *
+ * A disciplined subset of the official palette, per the brand guide §4: the
+ * full JA palette is permitted but a product UI should use a subset so screens
+ * stay coherent. Token names mirror the guide's so a designer reading both
+ * documents sees the same vocabulary.
+ *
+ * Colour balance the guide asks for, and this page holds to: 60–75% white or
+ * soft neutral, 15–25% Immersive Blue-Black structure, 5–15% turquoise/blue
+ * accents, under 5% yellow or red emphasis.
+ */
 :root {
-  --ink: #14181f;
-  --ink-soft: #55606f;
-  --ink-faint: #8b93a1;
-  --rule: #e3e7ee;
-  --surface: #ffffff;
-  --canvas: #f6f7f9;
-  --accent: #0b5d3b;
-  --accent-soft: #e6f2ec;
-  --warn: #8a5a00;
-  --warn-soft: #fdf3e0;
+  /* Core */
+  --brand-ink: #22404d; /* Immersive Blue-Black — text, nav, dark panels */
+  --brand-blue: #285f74; /* Boundless Blue — secondary nav, active states */
+  --brand-teal: #008b9c; /* Transforming Teal — links, selected accents */
+  --brand-turquoise: #00a0af; /* Resilient Turquoise — accents, rules */
+  --brand-aqua: #00c0ca; /* Enterprise Aqua — high-energy accent */
+  --brand-sky: #99d9df; /* Reach-for-the-Sky Blue */
+  --brand-yellow: #e3e24f; /* Empowered Yellow — focus/emphasis */
+  --brand-cream: #f3f2b3; /* Confident Cream */
+  --brand-red: #f65f4e; /* Real-World Red — error cue only, always with text */
+
+  /* Surfaces */
+  --surface-white: #ffffff;
+  --surface-soft: #eef3f4; /* Possibility Pearl */
+  --surface-blue: #c2edf0; /* Optimistic Ice */
+  --surface-panel: #f7fafa;
+  --surface-stripe: #f1f6f7;
+
+  /* Neutrals — permitted for borders and disabled controls only */
+  --rule: #d6e1e4;
+  --rule-soft: #e4ecee;
+  --ink-soft: #5a7783;
+  --ink-muted: #7a929b;
+  --ink-body: #3c5c69;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
-  background: var(--canvas);
-  color: var(--ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  line-height: 1.55;
+  padding: 0;
+  background: var(--surface-soft);
+}
+
+body {
+  font-family: var(--font-montserrat), Montserrat, Arial, sans-serif;
+  color: var(--brand-ink);
   -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--brand-ink);
+}
+
+::selection {
+  background: var(--surface-blue);
+}
+
+/* Brand guide §8: a visible focus ring on every interactive element. */
+:focus-visible {
+  outline: 3px solid var(--brand-turquoise);
+  outline-offset: 2px;
 }

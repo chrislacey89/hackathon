@@ -1,150 +1,980 @@
-.page {
-  max-width: 62rem;
-  margin: 0 auto;
-  padding: 3rem 1.5rem 5rem;
+/* Shell ------------------------------------------------------------------ */
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(200px, 264px) minmax(0, 1fr);
+  background: var(--surface-soft);
 }
 
-.masthead {
+.sidebar {
+  background: var(--brand-ink);
+  color: var(--surface-white);
+  padding: 24px 20px 32px;
   display: flex;
+  flex-direction: column;
+  gap: 32px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brandMark {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  background: var(--brand-aqua);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--brand-ink);
+  line-height: 1;
+}
+
+.brandName {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  display: block;
+}
+
+.brandLocal {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--brand-sky);
+  line-height: 1.1;
+  display: block;
+  margin-top: 2px;
+}
+
+.brandNote {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 45%);
+  margin-top: 10px;
+  display: block;
+}
+
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand-sky);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--surface-white);
+  text-align: left;
+  font-family: inherit;
+}
+
+.navItemActive {
+  border-left-color: var(--brand-aqua);
+  background: rgb(0 192 202 / 16%);
+}
+
+.navItemName {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.navItemScope {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--brand-sky);
+  display: block;
+  margin-top: 3px;
+}
+
+.navItemCount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-aqua);
+}
+
+.navNote {
+  border: 1px solid rgb(0 192 202 / 35%);
+  padding: 10px 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--surface-blue);
+}
+
+.sidebarFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgb(255 255 255 / 60%);
+  line-height: 1.6;
+}
+
+.main {
+  min-width: 0;
+  padding: 0 0 96px;
+}
+
+.gutter {
+  padding-left: clamp(20px, 4vw, 48px);
+  padding-right: clamp(20px, 4vw, 48px);
+}
+
+/* Header ----------------------------------------------------------------- */
+
+.header {
+  background: var(--surface-white);
+  border-bottom: 1px solid var(--rule);
+  padding-top: 28px;
+  padding-bottom: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-teal);
 }
 
 .title {
-  margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: -0.015em;
-}
-
-.meta {
-  margin: 0 0 2rem;
-  color: var(--ink-soft);
-  font-size: 0.8125rem;
-}
-
-.banner {
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  margin-bottom: 2rem;
-  border: 1px solid #f0d9a8;
-  border-radius: 8px;
-  background: var(--warn-soft);
-  color: var(--warn);
-  font-size: 0.875rem;
-}
-
-.bannerLabel {
-  flex: none;
-  font-weight: 650;
-}
-
-.queue {
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.queueHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--rule);
-}
-
-.queueName {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.queueEmail {
-  color: var(--ink-soft);
-  font-size: 0.8125rem;
-}
-
-.lead {
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--rule);
-}
-
-.lead:last-child {
-  border-bottom: 0;
-}
-
-.leadHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem 0.75rem;
-}
-
-.leadName {
-  margin: 0;
-  font-size: 1.0625rem;
+  margin: 8px 0 0;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.08;
   letter-spacing: -0.01em;
 }
 
-.leadWhere {
-  color: var(--ink-soft);
-  font-size: 0.875rem;
+.lede {
+  margin: 8px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 62ch;
+  color: var(--ink-body);
 }
 
-.badges {
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Banners ---------------------------------------------------------------- */
+
+.banners {
+  padding-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bannerRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.banner {
+  padding: 14px 18px;
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  border-left: 4px solid var(--brand-blue);
+  background: var(--surface-blue);
+  margin: 0;
+}
+
+.bannerWarn {
+  background: var(--brand-cream);
+  border-left-color: var(--brand-yellow);
+}
+
+.bannerAlert {
+  background: var(--surface-white);
+  border-left-color: var(--brand-red);
+}
+
+.bannerLabel {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bannerBody {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+/* Buried-offers hero ----------------------------------------------------- */
+
+.heroWrap {
+  padding-top: 32px;
+}
+
+.hero {
+  background: var(--brand-ink);
+  color: var(--surface-white);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: stretch;
+}
+
+.heroFigure {
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid rgb(255 255 255 / 14%);
+}
+
+.heroEyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-aqua);
+}
+
+.heroNumber {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.heroClaim {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.heroNote {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--brand-sky);
+}
+
+.heroExample {
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  justify-content: center;
+  background: var(--brand-blue);
+}
+
+.heroExampleLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--surface-blue);
+}
+
+.heroQuote {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.heroQuote mark {
+  background: var(--brand-yellow);
+  color: var(--brand-ink);
+  padding: 0 4px;
+  font-weight: 700;
+}
+
+.heroCaption {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--surface-blue);
+  line-height: 1.5;
+}
+
+/* Stats ------------------------------------------------------------------ */
+
+.stats {
+  padding-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  background: var(--surface-white);
+  border: 1px solid var(--rule);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.statValue {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--brand-teal);
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.statNote {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+/* Section headings ------------------------------------------------------- */
+
+.section {
+  padding-top: 44px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--brand-ink);
+  padding-bottom: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.sectionMeta {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  display: block;
+  margin-top: 6px;
+}
+
+.sectionNote {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  max-width: 70ch;
+  line-height: 1.55;
+  margin: 6px 0 0;
+}
+
+/* Lead cards ------------------------------------------------------------- */
+
+.filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter {
+  height: 38px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 3px;
+  border: 1px solid #c2cfd3;
+  background: var(--surface-white);
+  color: var(--brand-ink);
+}
+
+.filterActive {
+  border-color: var(--brand-ink);
+  background: var(--brand-ink);
+  color: var(--surface-white);
+}
+
+.lead {
+  background: var(--surface-white);
+  border: 1px solid var(--rule);
+  border-top: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
-  margin: 0.625rem 0 0.875rem;
+  align-items: stretch;
 }
 
-.badge {
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
+.leadMain {
+  flex: 1 1 380px;
+  min-width: 0;
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.leadTags {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  border-radius: 2px;
+  background: var(--surface-soft);
+  color: var(--brand-ink);
   border: 1px solid var(--rule);
-  background: var(--canvas);
-  color: var(--ink-soft);
-  font-size: 0.75rem;
+}
+
+/* The one place Empowered Yellow earns its <5% budget: the buried column. */
+.tagBuried {
+  background: var(--brand-yellow);
+  border-color: #d2d142;
+}
+
+.leadFact {
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.badgeStrong {
-  border-color: #b8ddc9;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.badgeInferred {
-  border-color: #f0d9a8;
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-
-.quote {
-  margin: 0;
-  padding-left: 0.875rem;
-  border-left: 3px solid var(--accent);
-}
-
-.quote p {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.cite {
-  display: block;
-  margin-top: 0.375rem;
   color: var(--ink-soft);
-  font-size: 0.8125rem;
-  font-style: normal;
+}
+
+.leadQuote {
+  margin: 0;
+  padding-left: 16px;
+  border-left: 3px solid var(--brand-turquoise);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.quoteContext {
+  color: var(--ink-muted);
+}
+
+.leadQuote mark {
+  background: var(--surface-blue);
+  color: var(--brand-ink);
+  padding: 0 3px;
+  font-weight: 700;
+}
+
+.leadMeta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.leadIntent {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.leadWho {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.leadSide {
+  flex: 1 1 260px;
+  min-width: 240px;
+  border-left: 1px solid var(--rule);
+  background: var(--surface-panel);
+  padding: 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.sideLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.confidenceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.confidenceValue {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.confidenceBand {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.bar {
+  height: 6px;
+  background: #dce6e9;
+  margin-top: 8px;
+}
+
+.barFill {
+  height: 6px;
+  background: var(--brand-turquoise);
+}
+
+.barFillHigh {
+  background: var(--brand-teal);
+}
+
+.routedTo {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 8px;
+  display: block;
+}
+
+/* Brand guide §4: never status by colour alone — the dot always has a label. */
+.inferredFlag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+.inferredDot {
+  width: 8px;
+  height: 8px;
+  background: var(--brand-red);
+  flex: none;
+}
+
+.moreRow {
+  border: 1px solid var(--rule);
+  border-top: none;
+  background: var(--surface-white);
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.moreButton {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand-blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 6px 10px;
 }
 
 .empty {
-  padding: 1.25rem;
+  background: var(--surface-white);
+  border: 1px solid var(--rule);
+  border-top: none;
+  padding: 26px 28px;
   color: var(--ink-soft);
+}
+
+/* Measurement ------------------------------------------------------------ */
+
+.tableWrap {
+  background: var(--surface-white);
+  border: 1px solid var(--rule);
+  border-top: none;
+  overflow-x: auto;
+}
+
+.metrics {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 720px;
+}
+
+.metrics thead tr {
+  background: var(--brand-ink);
+  color: var(--surface-white);
+  text-align: left;
+}
+
+.metrics th {
+  padding: 14px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metrics th:first-child {
+  padding-left: 20px;
+}
+
+.metrics th:last-child {
+  padding-right: 20px;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  border-left: 1px solid rgb(255 255 255 / 20%);
+}
+
+.baselineHead {
+  background: var(--brand-blue);
+}
+
+.metrics td {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.metrics td:first-child {
+  padding-left: 20px;
+  font-weight: 700;
+}
+
+.metrics td:last-child {
+  padding-right: 20px;
+}
+
+.rowAlt {
+  background: var(--surface-panel);
+}
+
+.rowLow {
+  background: #fbfbf0;
+}
+
+.modelCell {
+  font-weight: 700;
+  border-left: 1px solid var(--rule-soft);
+}
+
+.baselineCell {
+  background: var(--surface-stripe);
+}
+
+.baselineCellFirst {
+  border-left: 1px solid var(--rule-soft);
+}
+
+.rowMarker {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  display: block;
+  margin-top: 3px;
+}
+
+.callout {
+  background: var(--brand-cream);
+  border-left: 4px solid var(--brand-yellow);
+  padding: 16px 20px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 90ch;
+}
+
+.calloutTitle {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.calloutBody {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* Buttons ---------------------------------------------------------------- */
+
+.button {
+  height: 46px;
+  padding: 0 22px;
+  background: var(--brand-ink);
+  color: var(--surface-white);
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: #163039;
+}
+
+.buttonDone {
+  background: var(--brand-teal);
+}
+
+.buttonSecondary {
+  background: var(--surface-white);
+  border: 2px solid var(--brand-ink);
+  color: var(--brand-ink);
+}
+
+.buttonSecondary:hover {
+  background: var(--surface-soft);
+}
+
+/* Footer ----------------------------------------------------------------- */
+
+.footer {
+  padding-top: 56px;
+  margin-top: 56px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.footerNote {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  max-width: 70ch;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Narrow viewports ------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .heroNumber {
+    font-size: 68px;
+  }
+
+  .heroFigure {
+    border-right: none;
+    border-bottom: 1px solid rgb(255 255 255 / 14%);
+  }
+
+  .leadSide {
+    border-left: none;
+    border-top: 1px solid var(--rule);
+  }
+}
+
+/* Copy button (referenced by CopyQueue; was never defined) ---------------- */
+
+.copyButton {
+  height: 46px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 3px;
+  background: var(--brand-ink);
+  color: var(--surface-white);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  background: var(--brand-blue);
+}
+
+.copyButtonDone {
+  background: var(--brand-teal);
+}
+
+/* Runs + upload (sidebar, dark surface) ----------------------------------- */
+
+a.navItem {
+  text-decoration: none;
+}
+
+a.navItem:hover {
+  color: var(--surface-white);
+  background: rgb(255 255 255 / 8%);
+}
+
+.uploadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 0 14px;
+}
+
+.uploadButton {
+  display: block;
+  padding: 11px 14px;
+  border-radius: 3px;
+  background: var(--brand-aqua);
+  color: var(--brand-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.uploadButton:hover {
+  background: var(--brand-sky);
+}
+
+.uploadButtonBusy {
+  background: rgb(0 192 202 / 22%);
+  color: var(--surface-white);
+  cursor: progress;
+  animation: uploadPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes uploadPulse {
+  50% {
+    background: rgb(0 192 202 / 40%);
+  }
+}
+
+.uploadInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.uploadHint {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 60%);
+}
+
+/* Brand guide §4: red is an error cue only, and never colour alone — the text is the message. */
+.uploadError {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--brand-red);
+}
+
+/* Sent marks -------------------------------------------------------------- */
+
+.markSent {
+  height: 36px;
+  padding: 0 14px;
+  margin-top: 8px;
+  border: 1px solid #c2cfd3;
+  border-radius: 3px;
+  background: var(--surface-white);
+  color: var(--brand-ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.markSent:hover {
+  border-color: var(--brand-ink);
+}
+
+.markSentDone {
+  border-color: var(--brand-teal);
+  background: var(--brand-teal);
+  color: var(--surface-white);
+}
+
+/* Sent cards recede rather than disappear — the queue stays auditable. */
+.leadSent {
+  opacity: 0.55;
 }
