@@ -17,6 +17,7 @@ const VALID: SentenceVerdict = {
   engagementType: "volunteer_again",
   confidence: 0.98,
   serviceRecovery: false,
+  quotable: false,
 };
 
 describe("SentenceVerdictSchema", () => {
@@ -32,6 +33,22 @@ describe("SentenceVerdictSchema", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("accepts a null quotability, because not-judged is a state a producer can be in", () => {
+    // The keyword baseline scores signal only, and run.json artifacts written
+    // before quotability existed carry no judgement either. Both are honest,
+    // and both must round-trip — `extractQuotes` reads null as "no quote",
+    // never as "the model said no".
+    const result = SentenceVerdictSchema.safeParse({ ...VALID, quotable: null });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a missing quotability, so absence is never mistaken for a judgement", () => {
+    const { quotable: _omitted, ...withoutQuotable } = VALID;
+
+    expect(SentenceVerdictSchema.safeParse(withoutQuotable).success).toBe(false);
   });
 
   it("accepts the contradiction the schema is unable to reject", () => {
