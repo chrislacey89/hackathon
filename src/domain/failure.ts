@@ -44,12 +44,19 @@ export type FailureCounts = z.infer<typeof FailureCountsSchema>;
  * inferred type and its per-tag documentation; this assertion is what stops the
  * two representations drifting. Adding a tag to `FAILURE_TAGS` without adding
  * a field here fails the build, which is the point.
+ *
+ * The check has to sit in a *constraint* to raise anything. A conditional type
+ * that evaluates to `never` is a perfectly legal alias and errors nowhere, so
+ * `Equals` computes the verdict and `Assert<T extends true>` is what fails the
+ * build when it comes back `false`. Mutual `A extends B, B extends A` would be
+ * the obvious spelling and is rejected as a circular constraint.
+ *
+ * Fully erased — no runtime binding.
  */
-type _TagsCovered = [FailureTag] extends [keyof FailureCounts]
-  ? [keyof FailureCounts] extends [FailureTag]
-    ? true
-    : never
-  : never;
+type Equals<A, B> =
+  (<G>() => G extends A ? 1 : 2) extends <G>() => G extends B ? 1 : 2 ? true : false;
+type Assert<T extends true> = T;
+type _TagsCovered = Assert<Equals<FailureTag, keyof FailureCounts>>;
 
 export function emptyFailureCounts(): FailureCounts {
   return { RateLimited: 0, SchemaInvalid: 0, Transient: 0 };
