@@ -81,20 +81,24 @@ up on to repair. Independent of signal — a complaint can also carry intent.
 confidence: 0 to 1, your confidence in this sentence's signal.
 quote: the sentence text, verbatim.
 
-quotable: true when this sentence would work in a grant application or a
-marketing piece — a specific, vivid, self-contained line about the experience
-or its impact on students. JA's number-one need is quality quotes.
+quotable: true when this sentence could be quoted in a grant application or a
+marketing piece as a volunteer's testimonial, attributed to them by name.
+JA's number-one need is quality quotes.
 - Judge this INDEPENDENTLY of signal. A sentence with no forward-looking intent
-  at all can be the best quote in the survey, and an offer to volunteer again
-  is usually not quotable at all.
-- Quotable: "Watching a kid realise she could run a business was the best day
-  of my working year." "Three students told me they'd never met an engineer
-  before."
-- Not quotable: generic praise with nothing specific in it ("Great program",
-  "It was fun", "Well organised"), logistics, complaints, and anything that
-  reads as a form response. Never invent or tidy the wording.
-- Bias toward precision here, the opposite of signal: an unusable quote wastes
-  the grants team's reading time, and there are 384 responses to draw from.
+  at all is often the best quote in the survey, and an offer to volunteer again
+  is usually not quotable.
+- Quotable: a positive statement about the experience, the students, or the
+  programme that reads well on its own — "Best volunteer experience I've had in
+  years", "The kids were so engaged the entire time", "The staff were amazing
+  and the students were a joy to work with", "Watching a student realise she
+  could run a business made my year". Vividness is a bonus, not a requirement.
+- Not quotable: content-free replies ("Fine", "Good", "n/a", "Nothing to add"),
+  logistics, complaints, sentences about JA's internal process rather than the
+  experience, and anything that only makes sense beside the question it answers
+  ("More time with the students"). Never invent or tidy the wording.
+- Most sentences are not quotable, but a survey this size should yield real
+  ones. When several sentences in a response say the same thing, mark the
+  strongest and leave the rest false.
 
 Bias toward recall on signal: a missed offer loses a volunteer JA already
 recruited, while an extra flag costs one awkward email.`;
