@@ -1,10 +1,11 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { Config } from "../config/load";
 import { readRun } from "../run/read";
+import { RunFileError } from "../run/run-file";
 import { writeRun } from "./emit";
 import type { RoutedLead } from "./route";
 
@@ -127,15 +128,12 @@ describe("readRun", () => {
     await expect(readRun("does/not/exist.json")).rejects.toThrow();
   });
 
-  it("rejects a run whose shape does not match rather than a partial object", async () => {
+  it("rejects a run whose shape does not match, naming the offending field", async () => {
     const path = await runPath();
-    await Effect.runPromise(
-      Effect.tryPromise(() =>
-        import("node:fs/promises").then((fs) => fs.writeFile(path, '{"leads":"nope"}')),
-      ),
-    );
+    await writeFile(path, '{"leads":"nope"}');
 
-    await expect(readRun(path)).rejects.toThrow();
+    await expect(readRun(path)).rejects.toThrow(RunFileError);
+    await expect(readRun(path)).rejects.toThrow(/leads/);
   });
 
   it("loads the committed run.json the app renders from", async () => {

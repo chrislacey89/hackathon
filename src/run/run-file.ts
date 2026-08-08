@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { ENGAGEMENT_SIGNALS, ENGAGEMENT_TYPES, FREE_TEXT_COLUMNS } from "../domain/engagement";
+import {
+  ENGAGEMENT_SIGNALS,
+  ENGAGEMENT_TYPES,
+  FREE_TEXT_COLUMNS,
+  SentenceVerdictSchema,
+} from "../domain/engagement";
 import type { RoutedLead } from "../pipeline/route";
 
 /**
@@ -22,20 +27,19 @@ const RoutedLeadSchema = z.object({
   sourceColumn: z.enum(FREE_TEXT_COLUMNS).nullable(),
   serviceRecovery: z.boolean(),
   multiIntent: z.boolean(),
-  verdicts: z.array(
-    z.object({
-      column: z.enum(FREE_TEXT_COLUMNS),
-      sentenceIndex: z.number(),
-      quote: z.string(),
-      signal: z.enum(ENGAGEMENT_SIGNALS),
-      engagementType: z.enum(ENGAGEMENT_TYPES).nullable(),
-      confidence: z.number(),
-      serviceRecovery: z.boolean(),
-    }),
-  ),
+  // The one declaration, shared with the model boundary. Re-declaring it here
+  // let the two drift: this copy had lost the 0..1 bound on `confidence`, so a
+  // verdict rejected on the way out was accepted on the way back in.
+  verdicts: z.array(SentenceVerdictSchema),
   teamId: z.string().nullable(),
   recipientIds: z.array(z.string()),
   name: z.string(),
+  // Deliberately `z.string()`, not `z.email()` — unlike the recipient roster
+  // below, this comes from JA's bulk survey export, which we do not control.
+  // All 384 rows are well-formed today, but rejecting an entire run because one
+  // volunteer's address is malformed would lose 383 good leads to save nobody
+  // from anything. Contact data is displayed, not dispatched (§No-gos: nothing
+  // is transmitted), so a bad address costs one un-clickable mailto.
   email: z.string(),
   employer: z.string(),
   program: z.string(),
@@ -59,7 +63,7 @@ export const RunCountsSchema = z.object({
 const RunRecipientSchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string(),
+  email: z.email(),
   role: z.string().optional(),
 });
 
@@ -99,9 +103,39 @@ export type RunFile = Omit<z.infer<typeof RunFileSchema>, "leads"> & {
   leads: RoutedLead[];
 };
 
-type SchemaLead = z.infer<typeof RoutedLeadSchema>;
-const _leadShapesAgree = null as unknown as SchemaLead satisfies RoutedLead;
+/**
+ * Compile-time assignability assertion. Fully erased — no runtime binding, no
+ * double cast — and errors if the validator and `RoutedLead` ever disagree,
+ * which is what licenses the one cast in `parseRun` below.
+ */
+type AssertAssignable<A extends B, B> = [A, B] extends [B, A] ? true : never;
+type _LeadShapesAgree = AssertAssignable<z.infer<typeof RoutedLeadSchema>, RoutedLead>;
 
+export class RunFileError extends Error {
+  readonly issues: readonly z.core.$ZodIssue[];
+
+  constructor(issues: readonly z.core.$ZodIssue[]) {
+    const summary = issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("; ");
+    super(`run.json does not match the expected shape — ${summary}`);
+    this.name = "RunFileError";
+    this.issues = issues;
+  }
+}
+
+/**
+ * Validate a run read off disk.
+ *
+ * `safeParse` rather than `parse`, so the failure arrives as a `RunFileError`
+ * naming the offending path instead of a raw `ZodError` rendered into a Next
+ * error overlay. It still throws rather than returning a result: `run.json` is
+ * an artifact this repo generates and commits, so a malformed one is a build
+ * problem to fix, not a state the UI should have a branch for. The value here
+ * is a legible message, not a recovery path.
+ */
 export function parseRun(raw: unknown): RunFile {
-  return RunFileSchema.parse(raw) as RunFile;
+  const result = RunFileSchema.safeParse(raw);
+  if (!result.success) throw new RunFileError(result.error.issues);
+  return result.data as RunFile;
 }

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * The project's shared vocabulary: the three free-text columns we read, and the
  * two enumerated schemes every downstream module agrees on.
@@ -41,13 +43,64 @@ export type EngagementType = (typeof ENGAGEMENT_TYPES)[number];
  * Signal strength as an order, so "the strongest sentence wins" is a comparison
  * rather than a chain of ifs. Not a public ranking — `score` (slice #6) owns
  * priority, and it reads config weights, not this table.
+ *
+ * `as const satisfies` rather than a `Record` annotation: the annotation would
+ * widen the values to `number`, while `satisfies` checks totality over
+ * `EngagementSignal` *and* keeps the literals, so a missing member is a compile
+ * error and the ranks stay readable at the call site.
  */
-const SIGNAL_RANK: Record<EngagementSignal, number> = {
+export const SIGNAL_RANK = {
   none: 0,
   soft: 1,
   strong: 2,
-};
+} as const satisfies Record<EngagementSignal, number>;
 
-export function signalRank(signal: EngagementSignal): number {
-  return SIGNAL_RANK[signal];
-}
+/**
+ * One sentence's verdict, as the model returns it.
+ *
+ * This lives in the shared vocabulary rather than in `classify.ts` because two
+ * very different modules need it and neither should import the other:
+ * `classify` sends it to Gemini, and `run-file` validates it coming back off
+ * disk in a Next.js app that must not load the AI SDK. It was previously
+ * declared in both places, and the copies had already drifted — the `run.json`
+ * copy had lost the `0..1` bound on `confidence` and the integer bound on
+ * `sentenceIndex`, so a verdict rejected at the model boundary would have been
+ * accepted on read-back.
+ *
+ * `engagementType` is a **nullable enum, not a union**. The natural modelling
+ * — `{ signal: 'none' } | { signal: 'strong', engagementType: … }` — is
+ * inexpressible here: `@ai-sdk/google` converts Zod to an OpenAPI 3.0 subset
+ * that supports neither `z.union` nor `z.record` (research artifact, verified
+ * against the provider docs 2026-08-08). Gemini's own `responseSchema` does
+ * support `anyOf`; the narrowing is the SDK's.
+ *
+ * The tempting workaround — `structuredOutputs: false` — is a trap: it buys
+ * the union by discarding schema enforcement on *every* call. So the schema
+ * stays flat, `structuredOutputs` stays at its `true` default, and the
+ * signal/type invariant is enforced in code after parsing (`aggregate`).
+ */
+export const SentenceVerdictSchema = z.object({
+  column: z.enum(FREE_TEXT_COLUMNS),
+  sentenceIndex: z.number().int().min(0),
+  quote: z.string(),
+  signal: z.enum(ENGAGEMENT_SIGNALS),
+  engagementType: z.enum(ENGAGEMENT_TYPES).nullable(),
+  confidence: z.number().min(0).max(1),
+  serviceRecovery: z.boolean(),
+});
+
+export type SentenceVerdict = z.infer<typeof SentenceVerdictSchema>;
+
+/**
+ * A sentence verdict whose signal and type agree — the only shape that counts
+ * as evidence of intent.
+ *
+ * Named here so `aggregate`'s type predicate can hand the compiler the half of
+ * the invariant that is expressible. The schema cannot carry it (see above), so
+ * this is where `signal !== 'none' implies engagementType !== null` stops being
+ * purely a runtime claim.
+ */
+export type IntentVerdict = SentenceVerdict & {
+  signal: Exclude<EngagementSignal, "none">;
+  engagementType: EngagementType;
+};

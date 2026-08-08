@@ -1,8 +1,31 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { IngestError, loadResponses } from "./ingest";
 
 const EXPORT_PATH = "data/volunteer_survey_export.csv";
+
+/** All sixteen columns present, but `response_id` blank — the join key is gone. */
+const FIRST_ROW_RAW = {
+  response_id: "",
+  submitted_at: "2025-12-28T13:45",
+  program: "JA Company Program",
+  school: "Wayne HS",
+  volunteer_name: "Casey Dupree",
+  volunteer_email: "casey.dupree@three.com",
+  employer: "Three Rivers Credit Union",
+  role_this_year: "Classroom Volunteer",
+  q1_overall_satisfaction: "4",
+  q2_would_recommend: "5",
+  q3_felt_prepared: "3",
+  q4_volunteer_again: "",
+  q5_what_went_well: "Staff support was excellent.",
+  q6_what_could_improve: "More time with the students.",
+  q7_anything_else: "",
+  opt_in_contact: "Yes",
+};
 
 describe("loadResponses", () => {
   it("reads every row of the survey export", async () => {
@@ -60,5 +83,23 @@ describe("loadResponses", () => {
     );
 
     expect(result._tag).toBe("Left");
+    if (result._tag === "Left") {
+      // Names the actual cause, so the test cannot pass on an unrelated failure
+      // and the message an operator sees stays useful.
+      expect(result.left.reason).toMatch(/missing required column\(s\)/);
+      expect(result.left.reason).toContain("submitted_at");
+    }
+  });
+
+  it("fails on a row missing the response_id it will be joined on", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "vir-ingest-"));
+    const path = join(dir, "no-id.csv");
+    const header = Object.keys(FIRST_ROW_RAW).join(",");
+    await writeFile(path, `${header}\n${Object.values(FIRST_ROW_RAW).join(",")}\n`);
+
+    const result = await Effect.runPromise(Effect.either(loadResponses(path)));
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") expect(result.left.reason).toMatch(/line 2 has no response_id/);
   });
 });

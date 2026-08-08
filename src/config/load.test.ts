@@ -44,7 +44,12 @@ describe("loadConfig", () => {
     const result = await Effect.runPromise(Effect.either(loadConfig({ configDir: dir })));
 
     expect(result._tag).toBe("Left");
-    if (result._tag === "Left") expect(result.left).toBeInstanceOf(ConfigError);
+    if (result._tag === "Left") {
+      expect(result.left).toBeInstanceOf(ConfigError);
+      // Asserting the reason, not just the failure: without this the test would
+      // still pass if the loader started failing for some unrelated cause.
+      expect(result.left.reason).toMatch(/no teams\.json or teams\.example\.json/);
+    }
   });
 
   it("fails rather than returning a partial object when the shape is wrong", async () => {
@@ -53,6 +58,26 @@ describe("loadConfig", () => {
     const result = await Effect.runPromise(Effect.either(loadConfig({ configDir: dir })));
 
     expect(result._tag).toBe("Left");
+    if (result._tag === "Left") {
+      expect(result.left.reason).toMatch(/does not match the config shape/);
+    }
+  });
+
+  it("rejects a recipient whose email is malformed", async () => {
+    const dir = await configDir({
+      "teams.json": JSON.stringify({
+        recipients: [{ id: "r1", name: "Real Person", email: "not-an-email" }],
+        teams: [{ id: "t1", label: "Team", owns: ["donation"], recipientIds: ["r1"] }],
+        nearMissCap: 10,
+        concurrency: 2,
+      }),
+    });
+
+    const result = await Effect.runPromise(Effect.either(loadConfig({ configDir: dir })));
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left")
+      expect(result.left.reason).toMatch(/does not match the config shape/);
   });
 
   it("rejects a team routing to a recipient that does not exist", async () => {

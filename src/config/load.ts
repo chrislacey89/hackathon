@@ -7,7 +7,10 @@ import { ENGAGEMENT_TYPES } from "../domain/engagement";
 const RecipientSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  email: z.string().min(1),
+  // Strict here, unlike the volunteer address in `run-file.ts`: this is a short
+  // hand-authored roster of JA staff, and a typo means a lead is routed to
+  // nobody. Failing at config load is the cheapest place to catch it.
+  email: z.email(),
   role: z.string().optional(),
 });
 

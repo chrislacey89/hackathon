@@ -1,3 +1,4 @@
+import type { EngagementType, FreeTextColumn } from "../domain/engagement";
 import { readRun } from "../run/read";
 import type { RunFile } from "../run/run-file";
 import styles from "./page.module.css";
@@ -15,20 +16,30 @@ import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 
-const TYPE_LABELS: Record<string, string> = {
+/**
+ * `satisfies Record<EngagementType, string>` rather than `Record<string, string>`.
+ *
+ * The annotation would accept any key, so adding a member to `ENGAGEMENT_TYPES`
+ * would leave this map silently incomplete and the UI would print the raw enum
+ * value. `satisfies` makes the map total: the build breaks until the new type
+ * has a label. That matters more than usual here — the correct-course note on
+ * #2 says JA's taxonomy is changing (it adds *donate SWAG* and splits donation
+ * into personal and corporate), so this map is guaranteed to go stale.
+ */
+const TYPE_LABELS = {
   volunteer_again: "Volunteer again",
   committee_board: "Committee / board",
   corporate_sponsorship: "Corporate sponsorship",
   refer_colleague: "Refer a colleague",
   speaking: "Speaking",
   donation: "Donation",
-};
+} as const satisfies Record<EngagementType, string>;
 
-const COLUMN_LABELS: Record<string, string> = {
+const COLUMN_LABELS = {
   q5_what_went_well: "what went well",
   q6_what_could_improve: "what could improve",
   q7_anything_else: "anything else",
-};
+} as const satisfies Record<FreeTextColumn, string>;
 
 function firstQueue(run: RunFile) {
   const recipient = run.recipients.find((r) =>
@@ -112,9 +123,7 @@ export default async function Page() {
                     {lead.signal} signal
                   </span>
                   {lead.engagementType ? (
-                    <span className={styles.badge}>
-                      {TYPE_LABELS[lead.engagementType] ?? lead.engagementType}
-                    </span>
+                    <span className={styles.badge}>{TYPE_LABELS[lead.engagementType]}</span>
                   ) : null}
                   {team ? <span className={styles.badge}>{team.label}</span> : null}
                   {team?.inferred ? (
@@ -132,7 +141,7 @@ export default async function Page() {
                     <p>“{lead.quote}”</p>
                     <cite className={styles.cite}>
                       {lead.name.split(" ")[0]}, in “
-                      {COLUMN_LABELS[lead.sourceColumn ?? ""] ?? lead.sourceColumn}”
+                      {lead.sourceColumn ? COLUMN_LABELS[lead.sourceColumn] : "an unknown box"}”
                     </cite>
                   </blockquote>
                 ) : null}

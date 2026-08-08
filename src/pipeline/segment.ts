@@ -18,12 +18,25 @@ export type Sentence = {
   text: string;
 };
 
+/**
+ * The `SurveyResponse` fields that actually hold prose.
+ *
+ * Derived from `SurveyResponse` rather than written out, so the map below
+ * cannot point a column at `q1OverallSatisfaction`. `keyof SurveyResponse`
+ * would permit exactly that, which is why the loop previously needed a
+ * `typeof prose !== "string"` guard to compensate for a type wider than
+ * reality.
+ */
+type FreeTextField = {
+  [K in keyof SurveyResponse]: SurveyResponse[K] extends string | null ? K : never;
+}[keyof SurveyResponse];
+
 /** Column identifier → the `SurveyResponse` field holding its prose. */
-const COLUMN_FIELDS: Record<FreeTextColumn, keyof SurveyResponse> = {
+const COLUMN_FIELDS = {
   q5_what_went_well: "q5WhatWentWell",
   q6_what_could_improve: "q6WhatCouldImprove",
   q7_anything_else: "q7AnythingElse",
-};
+} as const satisfies Record<FreeTextColumn, FreeTextField>;
 
 /**
  * `Intl.Segmenter` is the sentence splitter — ICU's Unicode segmentation
@@ -61,7 +74,7 @@ export function segmentResponse(response: SurveyResponse): Sentence[] {
 
   for (const column of FREE_TEXT_COLUMNS) {
     const prose = response[COLUMN_FIELDS[column]];
-    if (typeof prose !== "string") continue;
+    if (prose === null) continue;
 
     splitSentences(prose).forEach((text, index) => {
       sentences.push({ responseId: response.responseId, column, index, text });

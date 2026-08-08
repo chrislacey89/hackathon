@@ -3,43 +3,22 @@ import { generateText, Output } from "ai";
 import { Data, Effect } from "effect";
 import { z } from "zod";
 import {
-  ENGAGEMENT_SIGNALS,
-  ENGAGEMENT_TYPES,
   type EngagementSignal,
   type EngagementType,
-  FREE_TEXT_COLUMNS,
+  type SentenceVerdict,
+  SentenceVerdictSchema,
 } from "../domain/engagement";
 import type { SurveyResponse } from "./ingest";
 import { type Sentence, segmentResponse } from "./segment";
 
-export type { EngagementSignal, EngagementType };
-
 /**
- * The model's output shape, and the reason it is shaped this way.
- *
- * `engagementType` is a **nullable enum, not a union**. The natural modelling
- * — `{ signal: 'none' } | { signal: 'strong', engagementType: ... }` — is
- * inexpressible here: `@ai-sdk/google` converts Zod to an OpenAPI 3.0 subset
- * that supports neither `z.union` nor `z.record` (research artifact, verified
- * against the provider docs 2026-08-08). Gemini's own `responseSchema` does
- * support `anyOf`; the narrowing is the SDK's.
- *
- * The tempting workaround — `structuredOutputs: false` — is a trap: it buys
- * the union by discarding schema enforcement on *every* call. So the schema
- * stays flat, `structuredOutputs` stays at its `true` default, and the
- * signal/type invariant is enforced in code after parsing (`aggregate`).
+ * Re-exported so this module still satisfies issue #2's boundary map, which
+ * declares `classify.ts → SentenceVerdict`. The declaration now lives in the
+ * shared vocabulary, because `run-file.ts` needs the same schema and must not
+ * pull the AI SDK into the Next.js bundle to get it.
  */
-export const SentenceVerdictSchema = z.object({
-  column: z.enum(FREE_TEXT_COLUMNS),
-  sentenceIndex: z.number().int().min(0),
-  quote: z.string(),
-  signal: z.enum(ENGAGEMENT_SIGNALS),
-  engagementType: z.enum(ENGAGEMENT_TYPES).nullable(),
-  confidence: z.number().min(0).max(1),
-  serviceRecovery: z.boolean(),
-});
-
-export type SentenceVerdict = z.infer<typeof SentenceVerdictSchema>;
+export type { EngagementSignal, EngagementType, SentenceVerdict };
+export { SentenceVerdictSchema };
 
 const ClassificationSchema = z.object({
   verdicts: z.array(SentenceVerdictSchema),

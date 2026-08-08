@@ -2,9 +2,10 @@ import {
   type EngagementSignal,
   type EngagementType,
   type FreeTextColumn,
-  signalRank,
+  type IntentVerdict,
+  type SentenceVerdict,
+  SIGNAL_RANK,
 } from "../domain/engagement";
-import type { SentenceVerdict } from "./classify";
 
 /**
  * One response's verdict, rolled up from its sentences.
@@ -44,13 +45,13 @@ export type ResponseVerdict = {
  * queue. Both corrupt silently instead of failing loudly, which is exactly the
  * property PRD #1 §Implementation Decisions names this invariant to prevent.
  */
-function isCoherentIntent(v: SentenceVerdict): boolean {
+function isCoherentIntent(v: SentenceVerdict): v is IntentVerdict {
   return v.signal !== "none" && v.engagementType !== null;
 }
 
 /** Strongest signal first; among equals, the model's own confidence decides. */
 function strongerThan(a: SentenceVerdict, b: SentenceVerdict): boolean {
-  const rankDelta = signalRank(a.signal) - signalRank(b.signal);
+  const rankDelta = SIGNAL_RANK[a.signal] - SIGNAL_RANK[b.signal];
   return rankDelta > 0 || (rankDelta === 0 && a.confidence > b.confidence);
 }
 
@@ -67,16 +68,17 @@ function strongerThan(a: SentenceVerdict, b: SentenceVerdict): boolean {
  * for certain.
  */
 export function aggregate(responseId: string, verdicts: SentenceVerdict[]): ResponseVerdict {
+  // `isCoherentIntent` is a type predicate, so `intents` is IntentVerdict[] —
+  // the compiler now carries the non-null-ness the filter established, and
+  // `engagementTypes` needs no second filter to recover it.
   const intents = verdicts.filter(isCoherentIntent);
 
-  const strongest = intents.reduce<SentenceVerdict | null>(
+  const strongest = intents.reduce<IntentVerdict | null>(
     (best, v) => (best === null || strongerThan(v, best) ? v : best),
     null,
   );
 
-  const engagementTypes = [
-    ...new Set(intents.map((v) => v.engagementType).filter((t): t is EngagementType => t !== null)),
-  ];
+  const engagementTypes = [...new Set(intents.map((v) => v.engagementType))];
 
   const serviceRecovery = verdicts.some((v) => v.serviceRecovery);
 

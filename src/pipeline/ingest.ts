@@ -78,9 +78,18 @@ function yesNo(raw: string | undefined): boolean | null {
   return null;
 }
 
-function toResponse(row: Record<string, string>): SurveyResponse {
+/**
+ * `responseId` is passed in already validated rather than defaulted here.
+ *
+ * It is the join key: every verdict, lead, and `run.json` row is addressed by
+ * it, and the eval harness (#3) joins predictions to ground truth on it. A row
+ * that silently became `""` would travel the whole pipeline and surface as a
+ * lead nobody can trace back to a volunteer — the same silent-degradation
+ * failure the header check exists to prevent, one column lower down.
+ */
+function toResponse(row: Record<string, string>, responseId: string): SurveyResponse {
   return {
-    responseId: text(row.response_id) ?? "",
+    responseId,
     submittedAt: text(row.submitted_at) ?? "",
     program: text(row.program) ?? "",
     school: text(row.school) ?? "",
@@ -129,13 +138,31 @@ export function loadResponses(path: string): Effect.Effect<SurveyResponse[], Ing
       }),
     ),
     Effect.flatMap((rows) => {
-      const header = Object.keys(rows[0] ?? {});
-      const missing = REQUIRED_HEADERS.filter((column) => !header.includes(column));
-      return missing.length > 0
-        ? Effect.fail(
-            new IngestError({ path, reason: `missing required column(s): ${missing.join(", ")}` }),
-          )
-        : Effect.succeed(rows.map(toResponse));
+      const first = rows[0];
+      if (first === undefined) {
+        return Effect.fail(new IngestError({ path, reason: "no data rows" }));
+      }
+
+      const missing = REQUIRED_HEADERS.filter((column) => !(column in first));
+      if (missing.length > 0) {
+        return Effect.fail(
+          new IngestError({ path, reason: `missing required column(s): ${missing.join(", ")}` }),
+        );
+      }
+
+      const responses: SurveyResponse[] = [];
+      for (const [index, row] of rows.entries()) {
+        const responseId = text(row.response_id);
+        if (responseId === null) {
+          // +2: the header is line 1 and `index` is zero-based, so this is the
+          // line number an operator will see when they open the CSV.
+          return Effect.fail(
+            new IngestError({ path, reason: `line ${index + 2} has no response_id` }),
+          );
+        }
+        responses.push(toResponse(row, responseId));
+      }
+      return Effect.succeed(responses);
     }),
   );
 }
