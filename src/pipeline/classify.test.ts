@@ -167,18 +167,29 @@ describe("sentenceVerdictSchemaFor", () => {
   });
 
   it("still asks the model for every field, quotability included", () => {
-    // The one place #14 and #18 could have silently cancelled each other out.
-    // #18 added `quotable` to the verdict; #14 introduced this factory to close
-    // the category enum. It narrows by `.extend()`, so `quotable` survives — but
-    // a later rewrite that built a fresh `z.object` here would drop it from the
-    // *outbound* contract while every read-back test stayed green.
+    // Where #14 and #18 meet: #18 added `quotable` to the verdict, #14 added
+    // this factory to close the category enum. It narrows by `.extend()`, so
+    // `quotable` survives into the *outbound* contract.
     //
-    // That failure is silent by construction: the model would never be asked,
-    // every verdict would come back `quotable: null`, and #18 defines null as
-    // NOT JUDGED — so an empty quotes document would read as "the model found
-    // nothing worth quoting" rather than "we stopped asking". Karen's stated
-    // number-one need, failing quietly. Asserted against the emitted JSON
-    // Schema because that is the artifact the provider actually receives.
+    // This is a legibility assertion, not a safety net — and the distinction is
+    // worth stating, because the obvious justification for this test is wrong.
+    // A rewrite that built a fresh `z.object` here and forgot `quotable` would
+    // NOT fail quietly: it is caught at typecheck (the inferred type is no
+    // longer assignable to `SentenceVerdict`) and again at `parseRun`, which
+    // rejects a verdict with no `quotable` key. Both were verified by
+    // constructing the regression, not assumed.
+    //
+    // What makes it loud is #18's choice to declare the field
+    // required-but-nullable rather than optional. `z.boolean().nullable()` makes
+    // "absent" unrepresentable, so the drop cannot be mistaken for the model
+    // having no opinion. `.optional()` would have inverted that: the model would
+    // never be asked, every verdict would read `quotable: undefined`, and an
+    // empty quotes document would look like "nothing worth quoting" rather than
+    // "we stopped asking".
+    //
+    // So this test is cheap documentation of a contract two slices co-own, not
+    // the thing standing between us and the bug. Asserted against the emitted
+    // JSON Schema because that is the artifact the provider actually receives.
     const emitted = z.toJSONSchema(schema, { io: "output" }) as {
       properties: Record<string, unknown>;
     };

@@ -118,13 +118,60 @@ Note for the resolution language specifically: *"every inferred row carries `inf
 **Alternatives considered:** (a) keep the four-team table and rely on `inferred: true` — rejected, it cannot express axis uncertainty; (b) omit the example config entirely and require `teams.json` — rejected, it breaks the fresh-clone run and the PRD requires a committed fallback.
 **Revisable:** Yes — once JA supplies the routing axis, the example should carry a realistic shape, because at that point the axis is knowledge rather than inference.
 
+## Outcome (2026-08-08, PR #27)
+
+The axis landed, and the placeholder behaved as this doc predicted it would.
+
+`Config` now carries `categories` and `counties`, and `Team.owns` is a list of
+`(category, county)` pairs. `config/teams.example.json` was rebuilt against the new axis
+and is **still one placeholder team owning everything** — the Prevention advice held under
+the rewrite rather than being abandoned once the real shape arrived.
+
+Three things are worth recording because they refine the original advice:
+
+1. **"Total, not partitioned" needed restating once the axis became two-dimensional.**
+   With one dimension, total is obvious: one team owns every type. With two, "total" means
+   the cross product, and there is a tempting shortcut — a wildcard row (`county: "*"`).
+   The wildcard was rejected precisely on this doc's logic: it would silently swallow
+   Tippecanoe and Elkhart when the real four-market export arrives, claiming ownership of
+   leads JA never assigned. Enumerating all 7 × 1 pairs means a new county surfaces as
+   `unowned` and visible. **The rule generalises as: a total placeholder must be total over
+   the values you have seen, never over the values you might see.**
+
+2. **The `expect(config.teams).toHaveLength(1)` guard survived and is still doing its job**
+   — it now sits alongside assertions that every category and every county row carries
+   `inferred: true`.
+
+3. **The two halves of the axis have different epistemics, and only one stayed a
+   placeholder.** `school → county` is geography: publicly checkable, and a wrong row
+   misroutes one lead visibly. It ships *seeded* with all 12 schools, flagged `inferred`.
+   `county → manager` is JA's org chart: not inferrable, and it stays a placeholder. The
+   original doc treated "the inferred mapping" as one thing; a two-dimensional key can
+   have one dimension that is honestly guessable and one that is not, and collapsing them
+   would have meant either shipping an empty lookup or inventing an org chart.
+
 ## Related
 
 - PR #13 — TRACER: end-to-end spine
+- PR #27 — Routing model: JA categories × county (the rewrite that met this doc's expiry
+  condition)
 - Issue #2, correct-course comment 2026-08-08
+- Issue #14, unblock comment 2026-08-08 — the geography-vs-org-chart split in point 3
 - PRD #1 §Rabbit Holes — "JA adopting our guesses as policy"
 - `KAREN-QUESTIONS.md` — the outstanding questions this inference was standing in for
+- [`required-nullable-makes-a-dropped-contract-field-loud-2026-08-08.md`](./required-nullable-makes-a-dropped-contract-field-loud-2026-08-08.md)
+  — the adjacent case where a *field within* a shared schema, rather than the schema's
+  axis, is what a later slice can silently lose
 
 ## Shelf Life
 
-Evergreen as a principle. The specific JA routing instance expires when the county × program axis is encoded in `Config` and `config/teams.example.json` is rebuilt against it.
+**Expiry condition met 2026-08-08 (PR #27)** — the axis is encoded in `Config` and
+`config/teams.example.json` has been rebuilt against it. The specific JA routing instance
+is now history rather than live guidance; it is retained because the Outcome section above
+records how the advice behaved under the rewrite, which is the part worth reusing.
+
+The principle remains evergreen: ship inferred mappings as a total single bucket rather
+than a plausible partition, and prefer a wrong-but-visible `unmapped` to a
+plausible-and-invisible default. Delete this document only when nothing in the repo
+depends on an inferred mapping — at which point the JA instance and the principle both
+stop earning their keep.
