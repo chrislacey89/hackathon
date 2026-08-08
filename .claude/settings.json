@@ -2,6 +2,9 @@
   "worktree": {
     "provisioning": "host"
   },
+  "enabledPlugins": {
+    "impeccable@impeccable": false
+  },
   "hooks": {
     "PreToolUse": [
       {
