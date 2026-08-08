@@ -15,9 +15,15 @@ import { sweep } from "./sweep";
  * `SWEEP_CONCURRENCY` overrides the config value. The config default is set
  * from the AI Studio dashboard; the env var exists so a demo run can be tuned
  * without editing committed config.
+ *
+ * `SWEEP_INPUT` / `SWEEP_OUTPUT` point the sweep at a different CSV and run
+ * file. The upload flow spawns this script as a child process — the app never
+ * imports the pipeline — and both default to the committed paths, so
+ * `pnpm run sweep` behaves exactly as before.
  */
 
-const EXPORT_PATH = "data/volunteer_survey_export.csv";
+const EXPORT_PATH = process.env.SWEEP_INPUT ?? "data/volunteer_survey_export.csv";
+const OUTPUT_PATH = process.env.SWEEP_OUTPUT;
 
 const concurrency = process.env.SWEEP_CONCURRENCY
   ? Number(process.env.SWEEP_CONCURRENCY)
@@ -44,6 +50,7 @@ const program = Effect.gen(function* () {
   });
 
   yield* writeRun(result.leads, {
+    ...(OUTPUT_PATH === undefined ? {} : { path: OUTPUT_PATH }),
     generatedAt: new Date().toISOString(),
     config,
     partial: result.partial,

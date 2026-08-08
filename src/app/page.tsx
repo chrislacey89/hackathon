@@ -1,12 +1,15 @@
+import { SIGNAL_RANK } from "../domain/engagement";
 import type { ClassMetrics } from "../eval/evaluate";
 import type { RoutedLead } from "../pipeline/route";
 import { draftHtml, draftText } from "../run/draft-text";
 import { isBuried, leadContext } from "../run/lead-context";
-import { readRun } from "../run/read";
+import { readRun, readUploadedRun } from "../run/read";
 import type { RunFile } from "../run/run-file";
+import { readSentMarks, sentIds } from "../run/sent";
 import { CopyQueue } from "./CopyQueue";
 import { LeadList } from "./LeadList";
 import styles from "./page.module.css";
+import { UploadCsv } from "./UploadCsv";
 
 /**
  * The demo surface, rendered from the committed `run.json`.
@@ -101,9 +104,21 @@ function SignalTable({ model, baseline }: { model: ClassMetrics[]; baseline: Cla
   );
 }
 
-export default async function Page() {
-  const run: RunFile = await readRun();
-  const signalLeads = run.leads.filter((lead) => lead.signal !== "none");
+export default async function Page({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  const { view } = await searchParams;
+  const fullRun: RunFile = await readRun();
+  const uploadedRun = await readUploadedRun();
+  const showUploaded = view === "uploaded" && uploadedRun !== null;
+  const run = showUploaded ? uploadedRun : fullRun;
+
+  // Strongest intent first, then confidence — the queue's promise is that the
+  // people most worth engaging are at the top, and the copied draft keeps the
+  // same order.
+  const signalLeads = run.leads
+    .filter((lead) => lead.signal !== "none")
+    .sort((a, b) => SIGNAL_RANK[b.signal] - SIGNAL_RANK[a.signal] || b.confidence - a.confidence);
+  const sent = sentIds(await readSentMarks(), run.generatedAt);
+  const sentCount = signalLeads.filter((lead) => sent.has(lead.responseId)).length;
   const buriedCount = run.leads.filter(isBuried).length;
   const hero = heroExample(run.leads);
   const heroCtx = hero ? leadContext(hero) : null;
@@ -128,6 +143,34 @@ export default async function Page() {
           <span className={styles.brandNote}>Placeholder — swap approved lockup</span>
         </div>
 
+        <nav className={styles.navGroup} aria-label="Runs">
+          <span className={styles.navLabel}>Runs</span>
+          <a href="/" className={`${styles.navItem} ${showUploaded ? "" : styles.navItemActive}`}>
+            <span>
+              <span className={styles.navItemName}>Full export</span>
+              <span className={styles.navItemScope}>
+                committed run.json · {fullRun.counts.responses} responses
+              </span>
+            </span>
+            <span className={styles.navItemCount}>{fullRun.counts.routed}</span>
+          </a>
+          {uploadedRun ? (
+            <a
+              href="/?view=uploaded"
+              className={`${styles.navItem} ${showUploaded ? styles.navItemActive : ""}`}
+            >
+              <span>
+                <span className={styles.navItemName}>Uploaded CSV</span>
+                <span className={styles.navItemScope}>
+                  classified live · {uploadedRun.counts.responses} responses
+                </span>
+              </span>
+              <span className={styles.navItemCount}>{uploadedRun.counts.routed}</span>
+            </a>
+          ) : null}
+          <UploadCsv />
+        </nav>
+
         <nav className={styles.navGroup} aria-label="Follow-up queues">
           <span className={styles.navLabel}>Follow-up queues</span>
           <button type="button" className={`${styles.navItem} ${styles.navItemActive}`}>
@@ -146,7 +189,11 @@ export default async function Page() {
           <span>
             Run {new Date(run.generatedAt).toLocaleDateString("en-US")} · {run.configSource}
           </span>
-          <span>Read from committed run.json — no model call in the request path.</span>
+          <span>
+            {showUploaded
+              ? "Read from run.uploaded.json — classified live from your upload."
+              : "Read from committed run.json — no model call in the request path."}
+          </span>
         </div>
       </aside>
 
@@ -193,8 +240,10 @@ export default async function Page() {
             <p className={`${styles.banner} ${styles.bannerAlert}`}>
               <span className={styles.bannerLabel}>Unowned</span>
               <span className={styles.bannerBody}>
-                {run.counts.routed} of {run.counts.routed} leads have no confirmed JA owner yet.
-                Nothing has been sent.
+                {run.counts.routed} of {run.counts.routed} leads have no confirmed JA owner yet.{" "}
+                {sentCount > 0
+                  ? `${sentCount} marked sent by hand — the tool sends nothing itself.`
+                  : "Nothing has been sent."}
               </span>
             </p>
           </div>
@@ -252,14 +301,23 @@ export default async function Page() {
             <span className={styles.statNote}>Surfaced separately from re-engagement</span>
           </div>
           <div className={styles.stat}>
-            <span className={styles.statValue}>0</span>
-            <span className={styles.statLabel}>Sent to a JA owner</span>
-            <span className={styles.statNote}>Routing not yet confirmed</span>
+            <span className={styles.statValue}>{sentCount}</span>
+            <span className={styles.statLabel}>Marked sent</span>
+            <span className={styles.statNote}>
+              {sentCount === 0
+                ? "Copy the queue, send it, mark it here"
+                : `${signalLeads.length - sentCount} of ${signalLeads.length} drafts remaining`}
+            </span>
           </div>
         </section>
 
         <section className={`${styles.section} ${styles.gutter}`}>
-          <LeadList leads={signalLeads} teams={run.teams} />
+          <LeadList
+            leads={signalLeads}
+            teams={run.teams}
+            runId={run.generatedAt}
+            sentIds={[...sent]}
+          />
         </section>
 
         <section className={`${styles.section} ${styles.gutter}`}>
@@ -280,7 +338,10 @@ export default async function Page() {
 
           {scored === null ? (
             <p className={styles.empty}>
-              This run has not been scored against the labeled sample. Run <code>pnpm eval</code>.
+              {showUploaded
+                ? "Uploaded runs are not scored — measurement lives on the full export, whose rows overlap the labeled sample."
+                : "This run has not been scored against the labeled sample. Run "}
+              {showUploaded ? null : <code>pnpm eval</code>}
             </p>
           ) : (
             <>

@@ -851,3 +851,134 @@
     border-top: 1px solid var(--rule);
   }
 }
+
+/* Copy button (referenced by CopyQueue; was never defined) ---------------- */
+
+.copyButton {
+  height: 46px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 3px;
+  background: var(--brand-ink);
+  color: var(--surface-white);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  background: var(--brand-blue);
+}
+
+.copyButtonDone {
+  background: var(--brand-teal);
+}
+
+/* Runs + upload (sidebar, dark surface) ----------------------------------- */
+
+a.navItem {
+  text-decoration: none;
+}
+
+a.navItem:hover {
+  color: var(--surface-white);
+  background: rgb(255 255 255 / 8%);
+}
+
+.uploadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 0 14px;
+}
+
+.uploadButton {
+  display: block;
+  padding: 11px 14px;
+  border-radius: 3px;
+  background: var(--brand-aqua);
+  color: var(--brand-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.uploadButton:hover {
+  background: var(--brand-sky);
+}
+
+.uploadButtonBusy {
+  background: rgb(0 192 202 / 22%);
+  color: var(--surface-white);
+  cursor: progress;
+  animation: uploadPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes uploadPulse {
+  50% {
+    background: rgb(0 192 202 / 40%);
+  }
+}
+
+.uploadInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.uploadHint {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 60%);
+}
+
+/* Brand guide §4: red is an error cue only, and never colour alone — the text is the message. */
+.uploadError {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--brand-red);
+}
+
+/* Sent marks -------------------------------------------------------------- */
+
+.markSent {
+  height: 36px;
+  padding: 0 14px;
+  margin-top: 8px;
+  border: 1px solid #c2cfd3;
+  border-radius: 3px;
+  background: var(--surface-white);
+  color: var(--brand-ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.markSent:hover {
+  border-color: var(--brand-ink);
+}
+
+.markSentDone {
+  border-color: var(--brand-teal);
+  background: var(--brand-teal);
+  color: var(--surface-white);
+}
+
+/* Sent cards recede rather than disappear — the queue stays auditable. */
+.leadSent {
+  opacity: 0.55;
+}
+
+.leadSent:hover {
+  opacity: 1;
+}

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import type { EngagementType, FreeTextColumn } from "../domain/engagement";
 import type { RoutedLead } from "../pipeline/route";
 import { isBuried, leadContext } from "../run/lead-context";
 import type { RunTeam } from "../run/run-file";
+import { setSent } from "./actions";
 import styles from "./page.module.css";
 
 const TYPE_LABELS = {
@@ -24,20 +25,58 @@ const COLUMN_LABELS = {
 
 const PAGE_SIZE = 6;
 
-type FilterKey = "all" | "buried" | "high";
+type FilterKey = "all" | "buried" | "high" | "unsent";
 
-export function LeadList({ leads, teams }: { leads: RoutedLead[]; teams: RunTeam[] }) {
+export function LeadList({
+  leads,
+  teams,
+  runId,
+  sentIds,
+}: {
+  /** Pre-ranked by the server: strongest signal first, then confidence. */
+  leads: RoutedLead[];
+  teams: RunTeam[];
+  /** `generatedAt` of the run on screen — sent marks are scoped to it. */
+  runId: string;
+  sentIds: string[];
+}) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [expanded, setExpanded] = useState(false);
+  const [, startTransition] = useTransition();
+  // Optimistic so the card flips on click; the appended mark is the truth the
+  // next render re-reads.
+  const [optimisticSent, applyMark] = useOptimistic(
+    sentIds,
+    (current: string[], update: { id: string; sent: boolean }) =>
+      update.sent ? [...current, update.id] : current.filter((id) => id !== update.id),
+  );
+  const sent = useMemo(() => new Set(optimisticSent), [optimisticSent]);
+
+  function toggleSent(id: string, next: boolean) {
+    startTransition(async () => {
+      applyMark({ id, sent: next });
+      await setSent(id, runId, next);
+    });
+  }
 
   const buriedCount = useMemo(() => leads.filter(isBuried).length, [leads]);
+  const sentCount = useMemo(
+    () => leads.filter((lead) => sent.has(lead.responseId)).length,
+    [leads, sent],
+  );
 
   const filtered = useMemo(() => {
     const match = (lead: RoutedLead) =>
-      filter === "all" ? true : filter === "buried" ? isBuried(lead) : lead.confidence >= 0.85;
-    // Highest confidence first — the reviewer's time is the scarce resource.
-    return leads.filter(match).sort((a, b) => b.confidence - a.confidence);
-  }, [leads, filter]);
+      filter === "all"
+        ? true
+        : filter === "buried"
+          ? isBuried(lead)
+          : filter === "high"
+            ? lead.confidence >= 0.85
+            : !sent.has(lead.responseId);
+    // Server order preserved: strongest intent first, then confidence.
+    return leads.filter(match);
+  }, [leads, filter, sent]);
 
   const shown = expanded ? filtered : filtered.slice(0, PAGE_SIZE);
 
@@ -45,6 +84,7 @@ export function LeadList({ leads, teams }: { leads: RoutedLead[]; teams: RunTeam
     { key: "all", label: `All leads (${leads.length})` },
     { key: "buried", label: `Buried in critique (${buriedCount})` },
     { key: "high", label: "Confidence ≥ 0.85" },
+    { key: "unsent", label: `Not yet sent (${leads.length - sentCount})` },
   ];
 
   return (
@@ -53,7 +93,8 @@ export function LeadList({ leads, teams }: { leads: RoutedLead[]; teams: RunTeam
         <div>
           <h2 className={styles.sectionTitle}>Leads</h2>
           <span className={styles.sectionMeta}>
-            {shown.length} of {filtered.length} shown · sorted by confidence
+            {shown.length} of {filtered.length} shown · strongest intent first ·{" "}
+            {sentCount === 0 ? "none sent yet" : `${sentCount} marked sent`}
           </span>
         </div>
         <div className={styles.filters}>
@@ -81,8 +122,12 @@ export function LeadList({ leads, teams }: { leads: RoutedLead[]; teams: RunTeam
           const context = leadContext(lead);
           const team = teams.find((t) => t.id === lead.teamId);
           const high = lead.confidence >= 0.85;
+          const isSent = sent.has(lead.responseId);
           return (
-            <article className={styles.lead} key={lead.responseId}>
+            <article
+              className={`${styles.lead} ${isSent ? styles.leadSent : ""}`}
+              key={lead.responseId}
+            >
               <div className={styles.leadMain}>
                 <div className={styles.leadTags}>
                   <span className={`${styles.tag} ${isBuried(lead) ? styles.tagBuried : ""}`}>
@@ -141,6 +186,17 @@ export function LeadList({ leads, teams }: { leads: RoutedLead[]; teams: RunTeam
                       Inferred — not confirmed
                     </span>
                   ) : null}
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    className={`${styles.markSent} ${isSent ? styles.markSentDone : ""}`}
+                    onClick={() => toggleSent(lead.responseId, !isSent)}
+                    aria-pressed={isSent}
+                    aria-label={`Mark ${lead.name} ${isSent ? "not sent" : "sent"}`}
+                  >
+                    {isSent ? "Sent ✓ · undo" : "Mark sent"}
+                  </button>
                 </div>
               </div>
             </article>

@@ -19,6 +19,11 @@ out/
 # Real recipient config — PII. config/teams.example.json is committed instead.
 config/teams.json
 
+# Demo state — written by the app at demo time, never committed
+run.uploaded.json
+data/uploads/
+sent-marks.jsonl
+
 # Build / cache
 dist/
 *.tsbuildinfo
