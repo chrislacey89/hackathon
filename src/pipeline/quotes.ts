@@ -139,10 +139,29 @@ const KEY_MARKER = /^<!-- quote-key: (.+) -->$/gm;
  */
 export function collectedKeys(document: string): Set<string> {
   const keys = new Set<string>();
-  for (const [, encoded] of document.matchAll(KEY_MARKER)) {
-    keys.add(JSON.parse(encoded) as string);
+
+  for (const [line, encoded] of document.matchAll(KEY_MARKER)) {
+    // A marker we cannot read is a hole in the dedup, and a hole in the dedup
+    // re-surfaces quotes Karen has already worked through — the failure that
+    // makes her stop trusting the document. Skipping it would leave no trace;
+    // throwing names the line.
+    const key = encoded === undefined ? undefined : tryParseKey(encoded);
+    if (key === undefined) {
+      throw new Error(`quotes document has an unreadable quote-key marker: ${line}`);
+    }
+    keys.add(key);
   }
+
   return keys;
+}
+
+function tryParseKey(encoded: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(encoded);
+    return typeof parsed === "string" ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function entry(candidate: QuoteCandidate): string {

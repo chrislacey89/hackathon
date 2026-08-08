@@ -257,4 +257,13 @@ describe("renderQuotesDocument", () => {
       /refusing to rewrite/,
     );
   });
+
+  it("fails loudly on a quote-key marker it cannot read, rather than silently losing history", () => {
+    const corrupted = renderQuotesDocument("", [candidate()]).replace(
+      /<!-- quote-key: .+ -->/,
+      "<!-- quote-key: not-json -->",
+    );
+
+    expect(() => renderQuotesDocument(corrupted, [candidate()])).toThrow(/unreadable quote-key/);
+  });
 });
