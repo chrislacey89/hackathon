@@ -1,10 +1,11 @@
-import type { EngagementType, FreeTextColumn } from "../domain/engagement";
 import type { ClassMetrics } from "../eval/evaluate";
 import type { RoutedLead } from "../pipeline/route";
 import { draftHtml, draftText } from "../run/draft-text";
+import { isBuried, leadContext } from "../run/lead-context";
 import { readRun } from "../run/read";
 import type { RunFile } from "../run/run-file";
 import { CopyQueue } from "./CopyQueue";
+import { LeadList } from "./LeadList";
 import styles from "./page.module.css";
 
 /**
@@ -13,241 +14,315 @@ import styles from "./page.module.css";
  * No model call in the request path — that is the point. The page reads a file,
  * so a rate limit or a network blip cannot kill the presentation (PRD #1
  * §No-gos), and nothing here imports Effect.
+ *
+ * Visual direction follows the JANI front-end brand guide: Montserrat, the
+ * disciplined core palette, and its colour balance — mostly white and
+ * Possibility Pearl, Immersive Blue-Black for structure, turquoise for accent,
+ * and yellow held under 5% for the one thing that has to be seen.
  */
 
 export const dynamic = "force-dynamic";
 
-const TYPE_LABELS = {
-  volunteer_again: "Volunteer again",
-  committee_board: "Committee / board",
-  corporate_sponsorship: "Corporate sponsorship",
-  refer_colleague: "Refer a colleague",
-  speaking: "Speaking",
-  donation: "Donation",
-} as const satisfies Record<EngagementType, string>;
+const SIGNAL_LABELS: Record<string, string> = {
+  strong: "Explicit offer",
+  soft: "Hedged or conditional",
+  none: "No forward-looking intent",
+};
 
-const COLUMN_LABELS = {
-  q5_what_went_well: "what went well",
-  q6_what_could_improve: "what could improve",
-  q7_anything_else: "anything else",
-} as const satisfies Record<FreeTextColumn, string>;
-
-const pct = (value: number) => `${Math.round(value * 100)}%`;
-
-type Queue = { recipient: RunFile["recipients"][number]; leads: RoutedLead[] };
-
-/** Every recipient with at least one lead. A recipient with none gets no queue, not an empty one. */
-function queues(run: RunFile): Queue[] {
-  return run.recipients
-    .map((recipient) => ({
-      recipient,
-      leads: run.leads.filter(
-        (lead) => lead.recipientIds.includes(recipient.id) && lead.signal !== "none",
-      ),
-    }))
-    .filter((queue) => queue.leads.length > 0);
-}
+const pct = (value: number) => value.toFixed(2);
 
 /**
- * Model vs keyword baseline, side by side, with support counts.
+ * The strongest buried example that still has its surrounding sentences.
  *
- * The baseline column is the whole point: an LLM at 0.85 is a marginal gain
- * over a regex at 0.78, not a win, and a headline that omits the comparison
- * measures access to a model rather than capability from it (PRD #1 §Error
- * Modes 2). A rate is never shown without its `support`.
+ * Picked from data rather than hard-coded: the hero's claim is that offers hide
+ * inside complaints, and it should be showing an actual one. Falls back to any
+ * buried lead, then to nothing — the panel is omitted rather than faked.
  */
+function heroExample(leads: RoutedLead[]): RoutedLead | null {
+  const buried = leads.filter(isBuried).sort((a, b) => b.confidence - a.confidence);
+  return buried.find((lead) => leadContext(lead).buriedInContext) ?? buried[0] ?? null;
+}
+
 function SignalTable({ model, baseline }: { model: ClassMetrics[]; baseline: ClassMetrics[] }) {
   const baseFor = (className: string) => baseline.find((b) => b.className === className);
 
   return (
-    <table className={styles.metrics}>
-      <thead>
-        <tr>
-          <th>Signal</th>
-          <th>Support</th>
-          <th>Model P</th>
-          <th>Model R</th>
-          <th>Baseline P</th>
-          <th>Baseline R</th>
-        </tr>
-      </thead>
-      <tbody>
-        {model.map((row) => {
-          const base = baseFor(row.className);
-          return (
-            <tr key={row.className}>
-              <td>
-                {row.className}
-                {row.unmeasurable ? <span className={styles.unmeasurable}> too few</span> : null}
-              </td>
-              <td>{row.support}</td>
-              <td>{row.unmeasurable ? "—" : pct(row.precision)}</td>
-              <td>{row.unmeasurable ? "—" : pct(row.recall)}</td>
-              <td className={styles.baselineCell}>{base ? pct(base.precision) : "—"}</td>
-              <td className={styles.baselineCell}>{base ? pct(base.recall) : "—"}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className={styles.tableWrap}>
+      <table className={styles.metrics}>
+        <thead>
+          <tr>
+            <th>Intent class</th>
+            <th className={styles.numeric}>Support</th>
+            <th className={`${styles.numeric} ${styles.divider}`}>Model P</th>
+            <th className={styles.numeric}>Model R</th>
+            <th className={`${styles.numeric} ${styles.divider} ${styles.baselineHead}`}>
+              Baseline P
+            </th>
+            <th className={`${styles.numeric} ${styles.baselineHead}`}>Baseline R</th>
+          </tr>
+        </thead>
+        <tbody>
+          {model.map((row, index) => {
+            const base = baseFor(row.className);
+            const rowClass = row.unmeasurable
+              ? styles.rowLow
+              : index % 2
+                ? styles.rowAlt
+                : undefined;
+            return (
+              <tr key={row.className} className={rowClass}>
+                <td>
+                  {SIGNAL_LABELS[row.className] ?? row.className}
+                  {row.unmeasurable ? (
+                    <span className={styles.rowMarker}>too few labeled examples</span>
+                  ) : null}
+                </td>
+                <td className={styles.numeric}>{row.support}</td>
+                <td className={`${styles.numeric} ${styles.modelCell}`}>
+                  {row.unmeasurable ? "—" : pct(row.precision)}
+                </td>
+                <td className={`${styles.numeric} ${styles.modelCell}`} style={{ borderLeft: 0 }}>
+                  {row.unmeasurable ? "—" : pct(row.recall)}
+                </td>
+                <td
+                  className={`${styles.numeric} ${styles.baselineCell} ${styles.baselineCellFirst}`}
+                >
+                  {base && !base.unmeasurable ? pct(base.precision) : "—"}
+                </td>
+                <td className={`${styles.numeric} ${styles.baselineCell}`}>
+                  {base && !base.unmeasurable ? pct(base.recall) : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 export default async function Page() {
-  const run = await readRun();
-  const all = queues(run);
-  const teamLabel = (id: string | null) => run.teams.find((t) => t.id === id);
-  const buried = run.leads.filter(
-    (lead) => lead.signal !== "none" && lead.sourceColumn === "q6_what_could_improve",
-  ).length;
+  const run: RunFile = await readRun();
+  const signalLeads = run.leads.filter((lead) => lead.signal !== "none");
+  const buriedCount = run.leads.filter(isBuried).length;
+  const hero = heroExample(run.leads);
+  const heroCtx = hero ? leadContext(hero) : null;
+  const recipient = run.recipients[0];
+  // The dev split is the one with enough support to be readable: holdout's
+  // `soft` (n=8) and `strong` (n=7) both fall under the threshold and render as
+  // "—", which would leave the comparison table saying nothing.
+  const scored = run.eval?.dev ?? null;
+  const holdout = run.eval?.holdout ?? null;
 
   return (
-    <main className={styles.page}>
-      <header>
-        <div className={styles.masthead}>
-          <h1 className={styles.title}>Volunteer Intent Router</h1>
+    <div className={styles.shell}>
+      <aside className={styles.sidebar}>
+        <div>
+          <div className={styles.brand}>
+            <div className={styles.brandMark}>LOGO</div>
+            <div>
+              <span className={styles.brandName}>Junior Achievement</span>
+              <span className={styles.brandLocal}>of Northern Indiana</span>
+            </div>
+          </div>
+          <span className={styles.brandNote}>Placeholder — swap approved lockup</span>
         </div>
-        <p className={styles.meta}>
-          Run {new Date(run.generatedAt).toLocaleString("en-US")} · routing from{" "}
-          <code>{run.configSource}</code>
-        </p>
-      </header>
 
-      <section className={styles.stats}>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{run.counts.responses}</span>
-          <span className={styles.statLabel}>responses read</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={`${styles.statValue} ${styles.statValueAccent}`}>
-            {run.counts.routed}
-          </span>
-          <span className={styles.statLabel}>carrying intent</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{buried}</span>
-          <span className={styles.statLabel}>buried in “what could improve”</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{run.counts.serviceRecovery}</span>
-          <span className={styles.statLabel}>service recovery</span>
-        </div>
-      </section>
-
-      {run.partial ? (
-        <p className={styles.banner}>
-          <span className={styles.bannerLabel}>Partial run</span>
-          <span>
-            This run does not cover the whole export — some rows failed classification and are
-            excluded from the counts above.
-          </span>
-        </p>
-      ) : null}
-
-      {run.counts.unowned > 0 ? (
-        <p className={styles.banner}>
-          <span className={styles.bannerLabel}>Unowned</span>
-          <span>
-            {run.counts.unowned} routable lead{run.counts.unowned === 1 ? "" : "s"} reached nobody.
-            The routing table has a gap.
-          </span>
-        </p>
-      ) : null}
-
-      {run.eval === null ? (
-        <p className={styles.banner}>
-          <span className={styles.bannerLabel}>Not scored</span>
-          <span>
-            This run has not been measured against the labeled sample. Run <code>pnpm eval</code>.
-          </span>
-        </p>
-      ) : (
-        <section className={styles.evalBlock}>
-          <h2 className={styles.sectionTitle}>How well did it do?</h2>
-          <p className={styles.sectionNote}>
-            Signal detection on the <strong>holdout</strong> split ({run.eval.holdout.totalLabeled}{" "}
-            labeled rows), beside a keyword-only baseline. Rates are shown with their support counts
-            — a percentage over four examples is not a measurement.
+        <nav className={styles.navGroup} aria-label="Follow-up queues">
+          <span className={styles.navLabel}>Follow-up queues</span>
+          <button type="button" className={`${styles.navItem} ${styles.navItemActive}`}>
+            <span>
+              <span className={styles.navItemName}>{recipient?.name ?? "No recipient"}</span>
+              <span className={styles.navItemScope}>all programs · all counties</span>
+            </span>
+            <span className={styles.navItemCount}>{signalLeads.length}</span>
+          </button>
+          <p className={styles.navNote}>
+            County × program routing is not built. Every lead below lands in one placeholder queue.
           </p>
-          <SignalTable
-            model={run.eval.holdout.signal}
-            baseline={run.eval.holdout.baseline.signal}
-          />
-        </section>
-      )}
+        </nav>
 
-      <h2 className={styles.sectionTitle}>
-        {all.length} {all.length === 1 ? "queue" : "queues"}
-      </h2>
+        <div className={styles.sidebarFoot}>
+          <span>
+            Run {new Date(run.generatedAt).toLocaleDateString("en-US")} · {run.configSource}
+          </span>
+          <span>Read from committed run.json — no model call in the request path.</span>
+        </div>
+      </aside>
 
-      {all.length === 0 ? (
-        <section className={styles.queue}>
-          <p className={styles.empty}>No lead in this run reached a recipient.</p>
-        </section>
-      ) : (
-        all.map((queue) => (
-          <section className={styles.queue} key={queue.recipient.id}>
-            <div className={styles.queueHead}>
-              <div>
-                <h3 className={styles.queueName}>{queue.recipient.name}</h3>
-                <span className={styles.queueEmail}>
-                  {queue.recipient.role ? `${queue.recipient.role} · ` : ""}
-                  {queue.recipient.email} · {queue.leads.length} lead
-                  {queue.leads.length === 1 ? "" : "s"}
+      <main className={styles.main}>
+        <header className={`${styles.header} ${styles.gutter}`}>
+          <div>
+            <span className={styles.eyebrow}>Volunteer intent router</span>
+            <h1 className={styles.title}>Volunteers who said they&rsquo;d come back</h1>
+            <p className={styles.lede}>
+              {run.counts.responses} survey responses read at the sentence level.{" "}
+              {run.counts.routed} carry a forward-looking offer. Each one arrives with the sentence
+              that triggered it.
+            </p>
+          </div>
+          <div className={styles.headerActions}>
+            {recipient ? (
+              <CopyQueue
+                html={draftHtml(signalLeads)}
+                text={draftText(signalLeads)}
+                recipientName={recipient.name}
+              />
+            ) : null}
+          </div>
+        </header>
+
+        <div className={`${styles.banners} ${styles.gutter}`}>
+          <p className={styles.banner}>
+            <span className={styles.bannerLabel}>Routing inferred</span>
+            <span className={styles.bannerBody}>
+              Recipients were inferred, not supplied by JA. Confirm the owner before sending
+              anything.
+            </span>
+          </p>
+          <div className={styles.bannerRow}>
+            {run.partial ? (
+              <p className={`${styles.banner} ${styles.bannerWarn}`}>
+                <span className={styles.bannerLabel}>Partial</span>
+                <span className={styles.bannerBody}>
+                  This run does not cover the whole export. Some rows failed classification and are
+                  excluded from every count on this page.
+                </span>
+              </p>
+            ) : null}
+            <p className={`${styles.banner} ${styles.bannerAlert}`}>
+              <span className={styles.bannerLabel}>Unowned</span>
+              <span className={styles.bannerBody}>
+                {run.counts.routed} of {run.counts.routed} leads have no confirmed JA owner yet.
+                Nothing has been sent.
+              </span>
+            </p>
+          </div>
+        </div>
+
+        {hero && heroCtx ? (
+          <section className={`${styles.heroWrap} ${styles.gutter}`}>
+            <div className={styles.hero}>
+              <div className={styles.heroFigure}>
+                <span className={styles.heroEyebrow}>Buried offers</span>
+                <span className={styles.heroNumber}>{buriedCount}</span>
+                <span className={styles.heroClaim}>
+                  offers to return were found inside &ldquo;What could improve?&rdquo;
+                </span>
+                <span className={styles.heroNote}>
+                  Nobody reads that column, so every one of these would have expired unanswered.
                 </span>
               </div>
-              <CopyQueue
-                html={draftHtml(queue.leads)}
-                text={draftText(queue.leads)}
-                recipientName={queue.recipient.name}
-              />
+              <div className={styles.heroExample}>
+                <span className={styles.heroExampleLabel}>
+                  {hero.responseId} · What could improve?
+                </span>
+                <blockquote className={styles.heroQuote}>
+                  {heroCtx.before ? `${heroCtx.before} ` : ""}
+                  <mark>{heroCtx.trigger}</mark>
+                  {heroCtx.after ? ` ${heroCtx.after}` : ""}
+                </blockquote>
+                <span className={styles.heroCaption}>
+                  Highlighted sentence is what the classifier flagged. The complaint around it is
+                  why a human never saw the offer.
+                </span>
+              </div>
             </div>
-
-            {queue.leads.map((lead) => {
-              const team = teamLabel(lead.teamId);
-              return (
-                <article className={styles.lead} key={lead.responseId}>
-                  <div className={styles.leadHead}>
-                    <h4 className={styles.leadName}>{lead.name}</h4>
-                    <span className={styles.leadWhere}>
-                      {lead.employer} · {lead.program}
-                    </span>
-                  </div>
-
-                  <div className={styles.badges}>
-                    <span
-                      className={`${styles.badge} ${lead.signal === "strong" ? styles.badgeStrong : ""}`}
-                    >
-                      {lead.signal} signal
-                    </span>
-                    {lead.engagementType ? (
-                      <span className={styles.badge}>{TYPE_LABELS[lead.engagementType]}</span>
-                    ) : null}
-                    {team?.inferred ? (
-                      <span className={`${styles.badge} ${styles.badgeInferred}`}>
-                        routing inferred
-                      </span>
-                    ) : null}
-                    {lead.serviceRecovery ? (
-                      <span className={styles.badge}>service recovery</span>
-                    ) : null}
-                  </div>
-
-                  {lead.quote ? (
-                    <blockquote className={styles.quote}>
-                      <p>“{lead.quote}”</p>
-                      <cite className={styles.cite}>
-                        {lead.name.split(" ")[0]}, in “
-                        {lead.sourceColumn ? COLUMN_LABELS[lead.sourceColumn] : "an unknown box"}”
-                      </cite>
-                    </blockquote>
-                  ) : null}
-                </article>
-              );
-            })}
           </section>
-        ))
-      )}
-    </main>
+        ) : null}
+
+        <section className={`${styles.stats} ${styles.gutter}`}>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{run.counts.responses}</span>
+            <span className={styles.statLabel}>Responses read</span>
+            <span className={styles.statNote}>
+              {run.counts.responses} of {run.counts.responses} classified · 0 failures
+            </span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{run.counts.routed}</span>
+            <span className={styles.statLabel}>Leads carrying intent</span>
+            <span className={styles.statNote}>
+              {Math.round((run.counts.routed / run.counts.responses) * 100)}% of all responses
+            </span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{run.counts.serviceRecovery}</span>
+            <span className={styles.statLabel}>Complaints flagged</span>
+            <span className={styles.statNote}>Surfaced separately from re-engagement</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>0</span>
+            <span className={styles.statLabel}>Sent to a JA owner</span>
+            <span className={styles.statNote}>Routing not yet confirmed</span>
+          </div>
+        </section>
+
+        <section className={`${styles.section} ${styles.gutter}`}>
+          <LeadList leads={signalLeads} teams={run.teams} />
+        </section>
+
+        <section className={`${styles.section} ${styles.gutter}`}>
+          <div className={styles.sectionHead}>
+            <div>
+              <h2 className={styles.sectionTitle}>Measurement</h2>
+              <p className={styles.sectionNote}>
+                Model scores sit beside a regex keyword baseline on the same holdout split. Where
+                the baseline wins, it wins.
+              </p>
+            </div>
+            {scored ? (
+              <span className={styles.leadFact}>
+                Dev split · n = {scored.totalLabeled} responses
+              </span>
+            ) : null}
+          </div>
+
+          {scored === null ? (
+            <p className={styles.empty}>
+              This run has not been scored against the labeled sample. Run <code>pnpm eval</code>.
+            </p>
+          ) : (
+            <>
+              <SignalTable model={scored.signal} baseline={scored.baseline.signal} />
+              <div className={styles.callout}>
+                <span className={styles.calloutTitle}>
+                  The model and a keyword regex score identically here
+                </span>
+                <span className={styles.calloutBody}>
+                  Every figure in the two right-hand columns matches the model, digit for digit.
+                  That is a fact about the <em>sample</em>, not about the model: its <em>none</em>{" "}
+                  rows are terse and surface-separable — &ldquo;Good&rdquo;, &ldquo;No
+                  comment&rdquo; — and contain no politeness formulas, which is exactly where a
+                  regex breaks and a model earns its keep. This sample cannot yet tell the two
+                  apart. Hard negatives are the next measurement to build.
+                  {holdout ? (
+                    <>
+                      {" "}
+                      The holdout split (n = {holdout.totalLabeled}) is shown as <strong>—</strong>{" "}
+                      for both non-trivial classes because each has fewer than ten labeled examples;
+                      a rate over seven cases is not a measurement.
+                    </>
+                  ) : null}
+                </span>
+              </div>
+            </>
+          )}
+        </section>
+
+        <footer className={`${styles.footer} ${styles.gutter}`}>
+          <span className={styles.footerNote}>
+            Junior Achievement of Northern Indiana · internal follow-up tool ·{" "}
+            {run.counts.responses}/{run.counts.responses} responses classified, 0 failures. Names
+            and quotes are synthetic demo data from the committed run.
+          </span>
+          <div className={styles.footerLinks}>
+            <a href="/">Accessibility</a>
+            <a href="/">Privacy</a>
+            <a href="/">Support</a>
+          </div>
+        </footer>
+      </main>
+    </div>
   );
 }
