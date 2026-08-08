@@ -104,6 +104,14 @@ function checkRecipientsResolve(config: z.infer<typeof ConfigSchema>): string[] 
  * project — so it is gitignored and `config/teams.example.json` is committed
  * with placeholders in its place (PRD #1 §Rabbit Holes). The fallback is what
  * keeps a fresh clone runnable without it.
+ *
+ * The example is one placeholder team owning every type, not a four-way split
+ * approximating JA's structure. Per the correct-course note on #2
+ * (2026-08-08), `teams` is about to gain a county dimension and three of the
+ * six engagement types may not survive JA's taxonomy, so an elaborated table
+ * would be investment in a shape being rewritten — and a plausible-looking
+ * guess is the thing PRD #1 §No-gos warns can get adopted as policy. The real
+ * mapping stays in `KAREN-QUESTIONS.md` until JA answers it.
  */
 export function loadConfig(options: LoadConfigOptions = {}): Effect.Effect<Config, ConfigError> {
   const dir = options.configDir ?? "config";

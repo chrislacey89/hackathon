@@ -87,18 +87,27 @@ describe("loadConfig", () => {
       ]);
     });
 
-    it("marks the three guessed routing rows as inferred", async () => {
+    it("is a single placeholder team, and says so", async () => {
       const config = await Effect.runPromise(loadConfig());
 
-      // Rachael confirmed three handoffs: committee prospect -> development,
-      // employer introduction -> corporate partnerships, repeat classroom
-      // volunteer -> program staff. Referrals, speaking, and giving are ours,
-      // and volunteer recruitment may not even exist as a function at JA.
-      expect(config.teams.filter((t) => t.inferred).map((t) => t.id)).toEqual([
-        "program-staff",
-        "development",
-        "volunteer-recruitment",
-      ]);
+      // Deliberately not JA's routing table, and deliberately not our best
+      // guess at one. The correct-course note on #2 (2026-08-08) says
+      // Config.teams is about to gain a county dimension and that three of the
+      // six engagement types may not survive JA's taxonomy — so an elaborated
+      // four-team split would be investment in a shape that is being rewritten.
+      // One placeholder owning everything keeps the pipeline exercisable and
+      // routes nothing on a guess. The real mapping lives in KAREN-QUESTIONS.md
+      // until JA answers.
+      expect(config.teams).toHaveLength(1);
+      expect(config.recipients).toHaveLength(1);
+      expect(config.teams.every((t) => t.inferred)).toBe(true);
+    });
+
+    it("leaves no engagement type unowned, so the tracer never routes to nobody", async () => {
+      const config = await Effect.runPromise(loadConfig());
+      const owned = new Set(config.teams.flatMap((t) => t.owns));
+
+      expect(owned.size).toBe(6);
     });
   });
 });

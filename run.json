@@ -1,51 +1,18 @@
 {
-  "generatedAt": "2026-08-08T16:36:03.441Z",
+  "generatedAt": "2026-08-08T16:47:13.666Z",
   "configSource": "teams.example.json",
   "recipients": [
     {
-      "id": "recipient-program",
-      "name": "Program Staff Lead (placeholder)",
-      "email": "program-staff@example.org",
-      "role": "Program Manager"
-    },
-    {
-      "id": "recipient-development",
-      "name": "Development Officer (placeholder)",
-      "email": "development@example.org",
-      "role": "Development Officer"
-    },
-    {
-      "id": "recipient-corporate",
-      "name": "Corporate Partnerships Lead (placeholder)",
-      "email": "corporate-partnerships@example.org",
-      "role": "Partnerships Manager"
-    },
-    {
-      "id": "recipient-recruitment",
-      "name": "Volunteer Recruitment Lead (placeholder)",
-      "email": "volunteer-recruitment@example.org",
-      "role": "Volunteer Coordinator"
+      "id": "recipient-placeholder",
+      "name": "Placeholder Recipient",
+      "email": "placeholder@example.org",
+      "role": "Placeholder"
     }
   ],
   "teams": [
     {
-      "id": "program-staff",
-      "label": "Program Staff",
-      "inferred": true
-    },
-    {
-      "id": "development",
-      "label": "Development",
-      "inferred": true
-    },
-    {
-      "id": "corporate-partnerships",
-      "label": "Corporate Partnerships",
-      "inferred": false
-    },
-    {
-      "id": "volunteer-recruitment",
-      "label": "Volunteer Recruitment",
+      "id": "placeholder-team",
+      "label": "Placeholder Team",
       "inferred": true
     }
   ],
@@ -65,7 +32,7 @@
       "engagementTypes": [
         "volunteer_again"
       ],
-      "confidence": 0.95,
+      "confidence": 0.98,
       "quote": "That said, put me down for next fall.",
       "sourceColumn": "q6_what_could_improve",
       "serviceRecovery": false,
@@ -95,7 +62,7 @@
           "quote": "That said, put me down for next fall.",
           "signal": "strong",
           "engagementType": "volunteer_again",
-          "confidence": 0.95,
+          "confidence": 0.98,
           "serviceRecovery": false
         },
         {
@@ -117,9 +84,9 @@
           "serviceRecovery": false
         }
       ],
-      "teamId": "program-staff",
+      "teamId": "placeholder-team",
       "recipientIds": [
-        "recipient-program"
+        "recipient-placeholder"
       ],
       "name": "Lucia Nunez",
       "email": "lucia.nunez@bluffton.com",
