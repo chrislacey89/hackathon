@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-08-08T16:32:18.724Z",
+  "configSource": "teams.example.json",
+  "partial": true,
+  "counts": {
+    "responses": 1,
+    "routed": 1,
+    "unowned": 0,
+    "multiIntent": 0,
+    "serviceRecovery": 0
+  },
+  "leads": [
+    {
+      "responseId": "JA-24378",
+      "signal": "strong",
+      "engagementType": "volunteer_again",
+      "engagementTypes": ["volunteer_again"],
+      "confidence": 0.98,
+      "quote": "That said, put me down for next fall.",
+      "sourceColumn": "q6_what_could_improve",
+      "serviceRecovery": false,
+      "multiIntent": false,
+      "verdicts": [
+        {
+          "column": "q5_what_went_well",
+          "sentenceIndex": 0,
+          "quote": "Staff support was excellent.",
+          "signal": "none",
+          "engagementType": null,
+          "confidence": 0.95,
+          "serviceRecovery": false
+        },
+        {
+          "column": "q6_what_could_improve",
+          "sentenceIndex": 0,
+          "quote": "More prep time would help.",
+          "signal": "none",
+          "engagementType": null,
+          "confidence": 0.9,
+          "serviceRecovery": false
+        },
+        {
+          "column": "q6_what_could_improve",
+          "sentenceIndex": 1,
+          "quote": "That said, put me down for next fall.",
+          "signal": "strong",
+          "engagementType": "volunteer_again",
+          "confidence": 0.98,
+          "serviceRecovery": false
+        },
+        {
+          "column": "q7_anything_else",
+          "sentenceIndex": 0,
+          "quote": "Really well run.",
+          "signal": "none",
+          "engagementType": null,
+          "confidence": 0.95,
+          "serviceRecovery": false
+        },
+        {
+          "column": "q7_anything_else",
+          "sentenceIndex": 1,
+          "quote": "Thank you for everything you do.",
+          "signal": "none",
+          "engagementType": null,
+          "confidence": 0.95,
+          "serviceRecovery": false
+        }
+      ],
+      "teamId": "program-staff",
+      "recipientIds": ["recipient-program"],
+      "name": "Lucia Nunez",
+      "email": "lucia.nunez@bluffton.com",
+      "employer": "Bluffton Steel Works",
+      "program": "JA BizTown"
+    }
+  ]
+}
