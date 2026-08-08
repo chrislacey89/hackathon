@@ -145,6 +145,11 @@ export function keywordBaseline(rows: SurveyResponse[]): ResponseVerdict[] {
         engagementType: signal === "none" ? null : engagementType,
         confidence: BASELINE_CONFIDENCE,
         serviceRecovery: matches(RECOVERY_PATTERNS, text),
+        // Not judged, rather than judged-and-rejected. This baseline exists to
+        // give the signal metrics a floor to beat; it has no keyword theory of
+        // what makes a sentence worth quoting, and claiming `false` would put
+        // 384 fabricated negatives into anything that later scored quotability.
+        quotable: null,
       };
     });
 

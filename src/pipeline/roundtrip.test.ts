@@ -53,6 +53,12 @@ function verdictFor(response: SurveyResponse, index: number): ResponseVerdict {
       engagementType: category?.id ?? "",
       confidence: 0.9,
       serviceRecovery: false,
+      // `null`, not `false` — these verdicts are synthesised to exercise
+      // routing and have no opinion about quotability. #18's rule is that null
+      // means NOT JUDGED rather than judged-and-rejected, and claiming a
+      // judgement this fixture never made would be the exact conflation that
+      // field is nullable to prevent.
+      quotable: null,
     },
   ]);
 }

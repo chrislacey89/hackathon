@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-08T16:47:13.666Z",
+  "generatedAt": "2026-08-08T18:18:07.453Z",
   "configSource": "teams.example.json, categories.example.json, counties.example.json",
   "recipients": [
     {
@@ -145,7 +145,8 @@
           "signal": "none",
           "engagementType": null,
           "confidence": 0.95,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": true
         },
         {
           "column": "q6_what_could_improve",
@@ -153,8 +154,9 @@
           "quote": "More prep time would help.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 0.9,
-          "serviceRecovery": false
+          "confidence": 0.95,
+          "serviceRecovery": false,
+          "quotable": false
         },
         {
           "column": "q6_what_could_improve",
@@ -163,7 +165,8 @@
           "signal": "strong",
           "engagementType": "volunteer_again",
           "confidence": 0.98,
-          "serviceRecovery": false
+          "serviceRecovery": false,
+          "quotable": false
         },
         {
           "column": "q7_anything_else",
@@ -171,8 +174,9 @@
           "quote": "Really well run.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 0.95,
-          "serviceRecovery": false
+          "confidence": 0.9,
+          "serviceRecovery": false,
+          "quotable": false
         },
         {
           "column": "q7_anything_else",
@@ -180,8 +184,9 @@
           "quote": "Thank you for everything you do.",
           "signal": "none",
           "engagementType": null,
-          "confidence": 0.95,
-          "serviceRecovery": false
+          "confidence": 0.98,
+          "serviceRecovery": false,
+          "quotable": false
         }
       ],
       "teamId": "placeholder-team",

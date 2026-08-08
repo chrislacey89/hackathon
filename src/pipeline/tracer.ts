@@ -5,6 +5,7 @@ import { classifyResponse } from "./classify";
 import { resolveCounty } from "./county";
 import { writeRun } from "./emit";
 import { loadResponses } from "./ingest";
+import { appendQuotes, extractQuotes, QUOTES_PATH } from "./quotes";
 import { dispositionOf, route } from "./route";
 
 /**
@@ -40,12 +41,19 @@ const program = Effect.gen(function* () {
   }
 
   const verdicts = yield* classifyResponse(response, config.categories);
-  const lead = route(
-    aggregate(response.responseId, verdicts),
-    response,
-    resolveCounty(response.school, config),
-    config,
-  );
+  const responseVerdict = aggregate(response.responseId, verdicts);
+  const lead = route(responseVerdict, response, resolveCounty(response.school, config), config);
+
+  // The quotes stream forks here rather than downstream of routing: it is a
+  // library, not a handoff, so it reads the same classified sentences and goes
+  // to a document instead of to a recipient (issue #18). Running it on the
+  // tracer's single response is what proves the second half of the fork works
+  // end to end; the document only becomes useful once #4's sweep classifies
+  // the whole export.
+  //
+  // Unaffected by #14's county routing: quotes go to a document, not a
+  // recipient, so a response whose school is unmapped still yields its quote.
+  const quotes = yield* appendQuotes(QUOTES_PATH, extractQuotes([response], [responseVerdict]));
 
   yield* writeRun([lead], {
     generatedAt: new Date().toISOString(),
@@ -55,7 +63,7 @@ const program = Effect.gen(function* () {
     partial: true,
   });
 
-  return lead;
+  return { lead, quotes };
 });
 
 /**
@@ -63,7 +71,7 @@ const program = Effect.gen(function* () {
  * nothing in the Next.js app — touches Effect.
  */
 Effect.runPromise(program).then(
-  (lead) => {
+  ({ lead, quotes }) => {
     const recipients = lead.recipientIds.length > 0 ? lead.recipientIds.join(", ") : "nobody";
     console.log(
       `${lead.responseId}: ${lead.signal} / ${lead.engagementType ?? "no category"}` +
@@ -71,6 +79,8 @@ Effect.runPromise(program).then(
         ` -> ${lead.teamId ?? dispositionOf(lead)} (${recipients})`,
     );
     console.log(`  quote: ${lead.quote ?? "(none)"} [${lead.sourceColumn ?? "-"}]`);
+    // Zero is a correct answer on a re-run — the document already holds them.
+    console.log(`  quotes added to ${QUOTES_PATH}: ${quotes.length}`);
   },
   (error) => {
     console.error(error);

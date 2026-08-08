@@ -104,6 +104,25 @@ export const SentenceVerdictSchema = z.object({
   engagementType: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   serviceRecovery: z.boolean(),
+  /**
+   * Whether this sentence is worth putting in front of the grants team.
+   *
+   * A **separate judgement from `signal`**, deliberately, and the one Karen
+   * ranked first: "finding quality quotes that we can use for grant and
+   * marketing purposes." A volunteer with no forward-looking intent at all can
+   * write the best line in the export, so nothing downstream may infer
+   * quotability from signal, or the other way round.
+   *
+   * Nullable, and `null` means **not judged** — not "judged and rejected".
+   * Two producers legitimately have no opinion: `run.json` artifacts written
+   * before this field existed, and the keyword baseline in `src/eval`, which
+   * scores signal only. Making absence an explicit state keeps a model that
+   * declined to answer distinguishable from one that answered no, which is the
+   * difference between "the quotes pass is broken" and "there were no quotes"
+   * — indistinguishable under a `.default(false)`, and both render as an empty
+   * document.
+   */
+  quotable: z.boolean().nullable(),
 });
 
 export type SentenceVerdict = z.infer<typeof SentenceVerdictSchema>;

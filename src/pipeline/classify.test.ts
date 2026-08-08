@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { sentenceVerdictSchemaFor } from "../domain/engagement";
 import { partitionByCitation, type SentenceVerdict, SentenceVerdictSchema } from "./classify";
 import type { Sentence } from "./segment";
@@ -18,6 +19,7 @@ const VALID: SentenceVerdict = {
   engagementType: "volunteer_again",
   confidence: 0.98,
   serviceRecovery: false,
+  quotable: false,
 };
 
 describe("SentenceVerdictSchema", () => {
@@ -33,6 +35,22 @@ describe("SentenceVerdictSchema", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("accepts a null quotability, because not-judged is a state a producer can be in", () => {
+    // The keyword baseline scores signal only, and run.json artifacts written
+    // before quotability existed carry no judgement either. Both are honest,
+    // and both must round-trip — `extractQuotes` reads null as "no quote",
+    // never as "the model said no".
+    const result = SentenceVerdictSchema.safeParse({ ...VALID, quotable: null });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a missing quotability, so absence is never mistaken for a judgement", () => {
+    const { quotable: _omitted, ...withoutQuotable } = VALID;
+
+    expect(SentenceVerdictSchema.safeParse(withoutQuotable).success).toBe(false);
   });
 
   it("accepts the contradiction the schema is unable to reject", () => {
@@ -146,6 +164,35 @@ describe("sentenceVerdictSchemaFor", () => {
     // two hand-written declarations this module's schema exists to have merged.
     expect(schema.safeParse({ ...VALID, confidence: 1.5 }).success).toBe(false);
     expect(schema.safeParse({ ...VALID, column: "q4_volunteer_again" }).success).toBe(false);
+  });
+
+  it("still asks the model for every field, quotability included", () => {
+    // The one place #14 and #18 could have silently cancelled each other out.
+    // #18 added `quotable` to the verdict; #14 introduced this factory to close
+    // the category enum. It narrows by `.extend()`, so `quotable` survives — but
+    // a later rewrite that built a fresh `z.object` here would drop it from the
+    // *outbound* contract while every read-back test stayed green.
+    //
+    // That failure is silent by construction: the model would never be asked,
+    // every verdict would come back `quotable: null`, and #18 defines null as
+    // NOT JUDGED — so an empty quotes document would read as "the model found
+    // nothing worth quoting" rather than "we stopped asking". Karen's stated
+    // number-one need, failing quietly. Asserted against the emitted JSON
+    // Schema because that is the artifact the provider actually receives.
+    const emitted = z.toJSONSchema(schema, { io: "output" }) as {
+      properties: Record<string, unknown>;
+    };
+
+    expect(Object.keys(emitted.properties).sort()).toEqual([
+      "column",
+      "confidence",
+      "engagementType",
+      "quotable",
+      "quote",
+      "sentenceIndex",
+      "serviceRecovery",
+      "signal",
+    ]);
   });
 });
 

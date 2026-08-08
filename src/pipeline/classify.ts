@@ -90,6 +90,25 @@ up on to repair. Independent of signal — a complaint can also carry intent.
 confidence: 0 to 1, your confidence in this sentence's signal.
 quote: the sentence text, verbatim.
 
+quotable: true when this sentence could be quoted in a grant application or a
+marketing piece as a volunteer's testimonial, attributed to them by name.
+JA's number-one need is quality quotes.
+- Judge this INDEPENDENTLY of signal. A sentence with no forward-looking intent
+  at all is often the best quote in the survey, and an offer to volunteer again
+  is usually not quotable.
+- Quotable: a positive statement about the experience, the students, or the
+  programme that reads well on its own — "Best volunteer experience I've had in
+  years", "The kids were so engaged the entire time", "The staff were amazing
+  and the students were a joy to work with", "Watching a student realise she
+  could run a business made my year". Vividness is a bonus, not a requirement.
+- Not quotable: content-free replies ("Fine", "Good", "n/a", "Nothing to add"),
+  logistics, complaints, sentences about JA's internal process rather than the
+  experience, and anything that only makes sense beside the question it answers
+  ("More time with the students"). Never invent or tidy the wording.
+- Most sentences are not quotable, but a survey this size should yield real
+  ones. When several sentences in a response say the same thing, mark the
+  strongest and leave the rest false.
+
 Bias toward recall on signal: a missed offer loses a volunteer JA already
 recruited, while an extra flag costs one awkward email.`;
 }
@@ -200,15 +219,32 @@ export function classifyResponse(
     Effect.flatMap((result) => {
       const { addressable, unaddressable } = partitionByCitation(result.output.verdicts, sentences);
 
-      // The discard was previously silent. It is rare and benign when it fires
-      // once, and a signal that the prompt or the segmentation has drifted when
-      // it fires often — which nobody can notice if it never says anything.
-      // Slice #4 turns this into a counted tag in run.json.
-      return unaddressable.length === 0
+      // Both discards were previously silent. Each is rare and benign when it
+      // fires once, and a signal that the prompt or the segmentation has
+      // drifted when it fires often — which nobody can notice if it never says
+      // anything. Slice #4 turns these into counted tags in run.json.
+      const warnings: string[] = [];
+      if (unaddressable.length > 0) {
+        warnings.push(
+          `dropped ${unaddressable.length} verdict(s) citing a sentence that was not sent`,
+        );
+      }
+
+      // `quotable: null` from a live call means the model declined to judge,
+      // which `extractQuotes` reads as "no quote". Left silent, a prompt or
+      // provider change that stopped eliciting the field would present as an
+      // empty quotes document — indistinguishable from an export with nothing
+      // worth quoting in it, and Karen's top need failing quietly.
+      const unjudged = addressable.filter((v) => v.quotable === null).length;
+      if (unjudged > 0) {
+        warnings.push(`${unjudged} verdict(s) came back with no quotability judgement`);
+      }
+
+      return warnings.length === 0
         ? Effect.succeed(addressable)
-        : Effect.logWarning(
-            `${response.responseId}: dropped ${unaddressable.length} verdict(s) citing a sentence that was not sent`,
-          ).pipe(Effect.as(addressable));
+        : Effect.logWarning(`${response.responseId}: ${warnings.join("; ")}`).pipe(
+            Effect.as(addressable),
+          );
     }),
   );
 }
