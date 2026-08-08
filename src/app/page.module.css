@@ -30,15 +30,15 @@
   width: 34px;
   height: 34px;
   flex: none;
-  border: 1px dashed rgb(255 255 255 / 50%);
+  background: var(--brand-aqua);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: rgb(255 255 255 / 60%);
-  line-height: 1.1;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--brand-ink);
+  line-height: 1;
 }
 
 .brandName {

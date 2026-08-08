@@ -134,7 +134,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
       <aside className={styles.sidebar}>
         <div>
           <div className={styles.brand}>
-            <div className={styles.brandMark}>LOGO</div>
+            <div className={styles.brandMark}>JA</div>
             <div>
               <span className={styles.brandName}>Junior Achievement</span>
               <span className={styles.brandLocal}>of Northern Indiana</span>
