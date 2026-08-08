@@ -1,0 +1,24 @@
+# Pipeline classification markers
+.claude/.tdd-active
+.claude/.tdd-skipped
+.claude/.ralph-checked
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Build / cache
+dist/
+*.tsbuildinfo
+
+# OS
+.DS_Store

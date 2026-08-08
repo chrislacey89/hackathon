@@ -1,0 +1,22 @@
+{
+  "name": "volunteer-intent-router",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "lefthook install",
+    "check": "biome check --write .",
+    "lint": "biome check ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.7",
+    "lefthook": "2.1.10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "lefthook"
+    ]
+  }
+}
