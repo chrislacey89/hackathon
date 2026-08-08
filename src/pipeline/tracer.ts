@@ -2,9 +2,10 @@ import { Effect } from "effect";
 import { loadConfig } from "../config/load";
 import { aggregate } from "./aggregate";
 import { classifyResponse } from "./classify";
+import { resolveCounty } from "./county";
 import { writeRun } from "./emit";
 import { loadResponses } from "./ingest";
-import { route } from "./route";
+import { dispositionOf, route } from "./route";
 
 /**
  * The tracer bullet: one response through every layer, end to end.
@@ -38,8 +39,13 @@ const program = Effect.gen(function* () {
     return yield* Effect.dieMessage(`${TRACER_RESPONSE_ID} is not in ${EXPORT_PATH}`);
   }
 
-  const verdicts = yield* classifyResponse(response);
-  const lead = route(aggregate(response.responseId, verdicts), response, config);
+  const verdicts = yield* classifyResponse(response, config.categories);
+  const lead = route(
+    aggregate(response.responseId, verdicts),
+    response,
+    resolveCounty(response.school, config),
+    config,
+  );
 
   yield* writeRun([lead], {
     generatedAt: new Date().toISOString(),
@@ -60,9 +66,9 @@ Effect.runPromise(program).then(
   (lead) => {
     const recipients = lead.recipientIds.length > 0 ? lead.recipientIds.join(", ") : "nobody";
     console.log(
-      `${lead.responseId}: ${lead.signal} / ${lead.engagementType ?? "no type"} -> ${
-        lead.teamId ?? "unowned"
-      } (${recipients})`,
+      `${lead.responseId}: ${lead.signal} / ${lead.engagementType ?? "no category"}` +
+        ` in ${lead.county ?? "no county"} (${lead.school})` +
+        ` -> ${lead.teamId ?? dispositionOf(lead)} (${recipients})`,
     );
     console.log(`  quote: ${lead.quote ?? "(none)"} [${lead.sourceColumn ?? "-"}]`);
   },

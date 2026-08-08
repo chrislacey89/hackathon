@@ -2,11 +2,13 @@ import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { Data, Effect } from "effect";
 import { z } from "zod";
+import type { Category } from "../config/load";
 import {
   type EngagementSignal,
   type EngagementType,
   type SentenceVerdict,
   SentenceVerdictSchema,
+  sentenceVerdictSchemaFor,
 } from "../domain/engagement";
 import type { SurveyResponse } from "./ingest";
 import { type Sentence, segmentResponse } from "./segment";
@@ -20,9 +22,9 @@ import { type Sentence, segmentResponse } from "./segment";
 export type { EngagementSignal, EngagementType, SentenceVerdict };
 export { SentenceVerdictSchema };
 
-const ClassificationSchema = z.object({
-  verdicts: z.array(SentenceVerdictSchema),
-});
+function classificationSchemaFor(categories: Category[]) {
+  return z.object({ verdicts: z.array(sentenceVerdictSchemaFor(categories.map((c) => c.id))) });
+}
 
 /**
  * Failure of a single classification call.
@@ -49,8 +51,18 @@ export type ClassifyOptions = {
  * Instructions are held apart from the response text and emitted first so the
  * prompt prefix is byte-identical across all 384 calls — the precondition for
  * Gemini's implicit prefix caching to engage at all.
+ *
+ * The category list is interpolated into this prefix rather than appended after
+ * the response, which preserves that property: `config/categories.json` is read
+ * once per run, so the rendered block is identical on every call of that run. It
+ * changes between runs, which is the intent — editing the taxonomy retunes the
+ * classifier without touching code (PRD #1 §Rabbit Holes: Karen's definitive
+ * list is a data change).
  */
-const INSTRUCTIONS = `You are classifying volunteer survey free-text for Junior Achievement.
+function instructionsFor(categories: Category[]): string {
+  const listed = categories.map((c) => `- ${c.id}: ${c.description}`).join("\n");
+
+  return `You are classifying volunteer survey free-text for Junior Achievement.
 
 Your job is to find FORWARD-LOOKING INTENT: a statement about doing something next.
 Enthusiasm is not intent. "I loved it" and "best volunteer experience I've had" are
@@ -67,13 +79,10 @@ signal:
   formulas ("happy to help", "let me know", "anytime", "thanks for everything")
   are "none" unless they name a specific future action.
 
-engagementType (null when signal is "none", otherwise the best fit):
-- volunteer_again: return to volunteer in a similar capacity
-- speaking: present, speak on a panel, share their career
-- refer_colleague: bring or refer another person
-- committee_board: join a committee or board
-- corporate_sponsorship: involve their employer as a sponsor or partner
-- donation: give money or goods
+engagementType (null when signal is "none", otherwise the best fit from this
+list — these are Junior Achievement's own categories, and nothing outside the
+list is a valid answer):
+${listed}
 
 serviceRecovery: true when the sentence reports a bad experience JA should follow
 up on to repair. Independent of signal — a complaint can also carry intent.
@@ -83,11 +92,16 @@ quote: the sentence text, verbatim.
 
 Bias toward recall on signal: a missed offer loses a volunteer JA already
 recruited, while an extra flag costs one awkward email.`;
+}
 
-function buildPrompt(response: SurveyResponse, sentences: Sentence[]): string {
+function buildPrompt(
+  response: SurveyResponse,
+  sentences: Sentence[],
+  categories: Category[],
+): string {
   const listed = sentences.map((s) => `[${s.column} #${s.index}] ${s.text}`).join("\n");
 
-  return `${INSTRUCTIONS}
+  return `${instructionsFor(categories)}
 
 --- RESPONSE ${response.responseId} ---
 Program: ${response.program}
@@ -157,9 +171,17 @@ export function partitionByCitation(
  * is banned project-wide (research artifact, migration guides 6.0/7.0).
  *
  * A response with no free text short-circuits to `[]` without a network call.
+ *
+ * `categories` is a required parameter rather than a loaded-inside detail:
+ * `classify` stays pure of I/O, and the categories the model is *told* about are
+ * necessarily the same ones `route` looks owners up by, because both read the
+ * one `Config` the run loaded. Letting this module load its own would make a
+ * prompt/routing taxonomy split possible, and it would present as every lead
+ * landing in `unowned`.
  */
 export function classifyResponse(
   response: SurveyResponse,
+  categories: Category[],
   options: ClassifyOptions = {},
 ): Effect.Effect<SentenceVerdict[], ClassifyError> {
   const sentences = segmentResponse(response);
@@ -169,9 +191,9 @@ export function classifyResponse(
     try: () =>
       generateText({
         model: google(options.model ?? DEFAULT_MODEL),
-        output: Output.object({ schema: ClassificationSchema }),
+        output: Output.object({ schema: classificationSchemaFor(categories) }),
         providerOptions: { google: { thinkingLevel: "low" } },
-        prompt: buildPrompt(response, sentences),
+        prompt: buildPrompt(response, sentences, categories),
       }),
     catch: (cause) => new ClassifyError({ responseId: response.responseId, reason: String(cause) }),
   }).pipe(
