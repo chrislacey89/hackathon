@@ -36,8 +36,15 @@ The instances here:
 |---|---|---|
 | `aggregate(vs: SentenceVerdict[]): ResponseVerdict` | `responseId` | `SurveyResponse` |
 | `route(rv: ResponseVerdict, c: Config): RoutedLead` | `name`, `email`, `employer`, `program` | `SurveyResponse` |
+| `evaluate(preds: ResponseVerdict[], truth: GroundTruth[]): EvalReport` (slice #3) | `split`, `baseline` | the caller; `SurveyResponse[]` |
 
-Both are the same shape: the return type carries volunteer *identity*, and identity never entered the pipeline stage that was asked to produce it.
+The first two are the same shape: the return type carries volunteer *identity*, and identity never entered the pipeline stage that was asked to produce it.
+
+**Second occurrence, 2026-08-08 (slice #3, PR #25).** The third row is the same defect in a different slice, and it is worth separating because its two unreachable fields fail in *different* ways. `split` is a fact about the caller's intent that no argument carries — the classic missing-parameter case, and the easy one to see. `baseline` is subtler: producing it requires `keywordBaseline(rows: SurveyResponse[])`, but the declared signature receives `ResponseVerdict[]` — a *different stage's* type. That kind resists eyeballing, because the field's name matches a symbol the slice genuinely produces; only tracing what that symbol needs as **input** exposes the gap.
+
+So the enumeration in Prevention is not just "list `T`'s fields and look for a parameter that has them" — for any field produced by another declared function, follow that function's *arguments* too. One hop is enough; the defect lives exactly there.
+
+Evidence now spans two slices at three defective signatures in seven (#2) and one in three (#3).
 
 ## Learning Level
 
@@ -48,7 +55,7 @@ Both are the same shape: the return type carries volunteer *identity*, and ident
 
 - **Applies when:** a slice's Produces declares a function signature *and* the PRD separately locks the return type's shape — the two-document split is what makes the defect invisible. Strongest for pipeline stages where types accrete across stages (`A → B → C`, each adding fields).
 - **Inverts or does not apply when:** the return type is declared inline in the same Produces entry (both halves in one view — a reader catches it), or when the function's return is a primitive, a boolean, or a type the function fully constructs from literals. Also does not apply to signatures that intentionally take a context/env object, since anything is reachable through it.
-- **Sibling docs:** [`inferred-config-guesses-the-axis-not-the-values-2026-08-08.md`](./inferred-config-guesses-the-axis-not-the-values-2026-08-08.md) — the adjacent case where a config artifact is unvalidated rather than unimplementable.
+- **Sibling docs:** [`inferred-config-guesses-the-axis-not-the-values-2026-08-08.md`](./inferred-config-guesses-the-axis-not-the-values-2026-08-08.md) — the adjacent case where a config artifact is unvalidated rather than unimplementable. [`prd-revised-after-decomposition-leaves-slices-silently-stale-2026-08-08.md`](./prd-revised-after-decomposition-leaves-slices-silently-stale-2026-08-08.md) — the adjacent case where a declaration was *correct when written* and later made stale by a PRD revision, rather than defective at authoring time. The two are distinguishable by timestamp: a defective declaration is wrong against the PRD it was decomposed from; a stale one is wrong only against a later revision.
 
 ## Solution
 
@@ -73,6 +80,13 @@ The corrections were filed as a comment on the slice issue rather than an edit t
 
 Mirror check at `/execute` Step 0: the Consumes gate already verifies upstream symbols exist and match their declared *shape*. Extend the same scepticism to this slice's own Produces before implementing — a signature that cannot construct its return type is knowable before the first test is written.
 
+**Prevention validated, 2026-08-08 (slice #3, PR #25).** The mirror check above was run as prescribed and caught `evaluate`'s defect *before the first test was written*. Cost and benefit both measured this time:
+
+- **Detection cost:** under a minute. Three fields on `EvalReport`, one hop each.
+- **Correction cost:** widening the signature to a single `EvalInput` object, decided before any code existed — so zero rework, versus slice #2 where one of three drifts shipped undocumented and was found by `/pre-merge` Dimension 4.
+
+The half that did *not* happen automatically was filing the correction comment. It was written only after `/pre-merge` flagged its absence as a Concern against this very document. That is worth noting precisely: the **detection** half of this doc's prevention transferred to a new slice on first contact, and the **recording** half did not. Detection is a check you run once and either pass or fail; recording is a follow-through with no forcing function, and follow-throughs need one. Treat "file the correction comment" as part of the same step rather than a tidy-up afterwards.
+
 ## Planning / Calibration Notes
 
 - **What widened the work:** negligible in code; the correction cost one issue comment and a PR-body revision. The real cost was review attention — the drift was found by `/pre-merge` Dimension 4, not at decomposition, and one of the three had already been shipped undocumented.
@@ -83,8 +97,10 @@ Mirror check at `/execute` Step 0: the Consumes gate already verifies upstream s
 
 - PR #13 — TRACER: end-to-end spine
 - Issue #2 — boundary-map correction comment, 2026-08-08
+- PR #25 — Eval harness + keyword baseline (second occurrence; prevention validated)
+- Issue #3 — boundary-map correction comment, 2026-08-08
 - PRD #1 §Implementation Decisions — locked contract shapes
 
 ## Shelf Life
 
-Expires if `/prd-to-issues` gains a type-reachability check, at which point this documents a defect the pipeline prevents. Until then, stable.
+Expires if `/prd-to-issues` gains a type-reachability check, at which point this documents a defect the pipeline prevents. Until then, stable — and the second occurrence (slice #3) is evidence the check is still needed, since decomposition produced the same defect class again in the same run.
