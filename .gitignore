@@ -27,5 +27,6 @@ next-env.d.ts
 # OS
 .DS_Store
 
-# Design-hook cache
-.impeccable/
+# Design-hook cache (config.json is committed — it disables the hook for this repo)
+.impeccable/*
+!.impeccable/config.json
