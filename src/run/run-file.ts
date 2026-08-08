@@ -5,6 +5,7 @@ import {
   FREE_TEXT_COLUMNS,
   SentenceVerdictSchema,
 } from "../domain/engagement";
+import type { EvalReport } from "../eval/evaluate";
 import type { RoutedLead } from "../pipeline/route";
 
 /**
@@ -74,6 +75,39 @@ const RunTeamSchema = z.object({
   inferred: z.boolean(),
 });
 
+/**
+ * Every field is required — `support` most of all.
+ *
+ * PRD #1 §SMART criteria: a rate is never published without its count. Marking
+ * `support` optional here would let a run reach the app carrying a bare 0.87,
+ * which is the exact shape the harness was built to refuse.
+ */
+const ClassMetricsSchema = z.object({
+  className: z.string(),
+  tp: z.number().int().min(0),
+  fp: z.number().int().min(0),
+  fn: z.number().int().min(0),
+  precision: z.number().min(0).max(1),
+  recall: z.number().min(0).max(1),
+  support: z.number().int().min(0),
+  unmeasurable: z.boolean(),
+});
+
+const EvalReportSchema = z.object({
+  split: z.enum(["dev", "holdout"]),
+  signal: z.array(ClassMetricsSchema),
+  engagementType: z.array(ClassMetricsSchema),
+  serviceRecovery: ClassMetricsSchema,
+  baseline: z.object({ signal: z.array(ClassMetricsSchema) }),
+  excluded: z.array(z.object({ responseId: z.string(), reason: z.string() })),
+  totalLabeled: z.number().int().min(0),
+});
+
+const EvalRunSchema = z.object({
+  dev: EvalReportSchema,
+  holdout: EvalReportSchema,
+});
+
 export const RunFileSchema = z.object({
   generatedAt: z.string(),
   /** Which config file produced the routing — JA's, or the committed placeholders. */
@@ -88,6 +122,18 @@ export const RunFileSchema = z.object({
   partial: z.boolean(),
   counts: RunCountsSchema,
   leads: z.array(RoutedLeadSchema),
+  /**
+   * How this run scored against the labeled sample, or `null` when it was
+   * never scored.
+   *
+   * Nullable rather than optional, and nullable rather than absent, because
+   * "not scored" has to be a statement the file makes rather than a field the
+   * reader fails to find. The tracer classifies one response; scoring it
+   * against 150 labels and publishing the result would be precisely the
+   * confident wrong number this harness exists to prevent (issue #3). Populated
+   * by `pnpm eval` once a run's predictions cover the labeled set.
+   */
+  eval: EvalRunSchema.nullable(),
 });
 
 export type RunCounts = z.infer<typeof RunCountsSchema>;
@@ -99,8 +145,11 @@ export type RunTeam = z.infer<typeof RunTeamSchema>;
  * the app and the pipeline agree on one definition. The `satisfies` below is
  * the compile-time check that the validator has not drifted from it.
  */
-export type RunFile = Omit<z.infer<typeof RunFileSchema>, "leads"> & {
+export type EvalRun = { dev: EvalReport; holdout: EvalReport };
+
+export type RunFile = Omit<z.infer<typeof RunFileSchema>, "leads" | "eval"> & {
   leads: RoutedLead[];
+  eval: EvalRun | null;
 };
 
 /**
@@ -110,6 +159,13 @@ export type RunFile = Omit<z.infer<typeof RunFileSchema>, "leads"> & {
  */
 type AssertAssignable<A extends B, B> = [A, B] extends [B, A] ? true : never;
 type _LeadShapesAgree = AssertAssignable<z.infer<typeof RoutedLeadSchema>, RoutedLead>;
+/**
+ * The same check for the eval report. `EvalReport` is owned by `src/eval`, and
+ * a field added there but not here would validate away silently on read-back —
+ * the drift that had already happened between the two `SentenceVerdict`
+ * declarations before they were merged.
+ */
+type _EvalShapesAgree = AssertAssignable<z.infer<typeof EvalReportSchema>, EvalReport>;
 
 export class RunFileError extends Error {
   readonly issues: readonly z.core.$ZodIssue[];

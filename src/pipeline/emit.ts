@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { Data, Effect } from "effect";
 import type { Config } from "../config/load";
 import { RUN_PATH } from "../run/read";
-import type { RunCounts, RunFile } from "../run/run-file";
+import type { EvalRun, RunCounts, RunFile } from "../run/run-file";
 import { isUnowned, type RoutedLead } from "./route";
 
 export class EmitError extends Data.TaggedError("EmitError")<{
@@ -18,6 +18,15 @@ export type WriteRunOptions = {
   config: Config;
   /** True when this run does not cover the whole export. */
   partial?: boolean;
+  /**
+   * How this run scored against the labeled sample.
+   *
+   * Defaults to `null` — "not scored" — rather than to an empty report,
+   * because a caller that forgot to score should produce a file that says so
+   * rather than one full of zeroes indistinguishable from a failing model.
+   * `pnpm eval` fills it in once a run's predictions cover the labeled set.
+   */
+  eval?: EvalRun | null;
 };
 
 function count(leads: RoutedLead[]): RunCounts {
@@ -64,6 +73,7 @@ export function writeRun(
     partial: options.partial ?? false,
     counts: count(leads),
     leads,
+    eval: options.eval ?? null,
   };
 
   return Effect.tryPromise({
