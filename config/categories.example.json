@@ -1,0 +1,46 @@
+{
+  "categories": [
+    {
+      "id": "volunteer_again",
+      "label": "Volunteer again",
+      "description": "return to the same program they just did",
+      "inferred": true
+    },
+    {
+      "id": "volunteer_jafp",
+      "label": "Volunteer — JA Finance Park",
+      "description": "volunteer specifically for JA Finance Park",
+      "inferred": true
+    },
+    {
+      "id": "volunteer_in_school",
+      "label": "Volunteer — in-school",
+      "description": "volunteer for in-school classroom programming",
+      "inferred": true
+    },
+    {
+      "id": "volunteer_events",
+      "label": "Volunteer — events",
+      "description": "help at a JA event rather than in a classroom",
+      "inferred": true
+    },
+    {
+      "id": "donate_swag",
+      "label": "Donate SWAG",
+      "description": "give branded goods, prizes, or materials rather than money",
+      "inferred": true
+    },
+    {
+      "id": "personal_donation",
+      "label": "Personal financial donation",
+      "description": "give their own money",
+      "inferred": true
+    },
+    {
+      "id": "employer_involvement",
+      "label": "Employer involvement",
+      "description": "involve their employer as a sponsor, partner, or host, or introduce someone there",
+      "inferred": true
+    }
+  ]
+}

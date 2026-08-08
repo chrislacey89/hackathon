@@ -12,12 +12,13 @@
       "id": "placeholder-team",
       "label": "Placeholder Team",
       "owns": [
-        "volunteer_again",
-        "speaking",
-        "refer_colleague",
-        "committee_board",
-        "corporate_sponsorship",
-        "donation"
+        { "category": "volunteer_again", "county": "Allen" },
+        { "category": "volunteer_jafp", "county": "Allen" },
+        { "category": "volunteer_in_school", "county": "Allen" },
+        { "category": "volunteer_events", "county": "Allen" },
+        { "category": "donate_swag", "county": "Allen" },
+        { "category": "personal_donation", "county": "Allen" },
+        { "category": "employer_involvement", "county": "Allen" }
       ],
       "recipientIds": ["recipient-placeholder"],
       "inferred": true

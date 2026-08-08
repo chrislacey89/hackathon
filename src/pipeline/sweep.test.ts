@@ -46,11 +46,24 @@ function rows(count: number): SurveyResponse[] {
 }
 
 const CONFIG: Config = {
-  source: "teams.example.json",
+  sources: {
+    teams: "teams.example.json",
+    categories: "categories.example.json",
+    counties: "counties.example.json",
+  },
   nearMissCap: 25,
   concurrency: 4,
   recipients: [{ id: "r-1", name: "Program Lead", email: "program@ja.org" }],
-  teams: [{ id: "t-1", label: "Placeholder", owns: ["volunteer_again"], recipientIds: ["r-1"] }],
+  teams: [
+    {
+      id: "t-1",
+      label: "Placeholder",
+      owns: [{ category: "volunteer_again", county: "Allen" }],
+      recipientIds: ["r-1"],
+    },
+  ],
+  categories: [{ id: "volunteer_again", label: "Volunteer again", description: "d" }],
+  counties: [{ school: "Northside Elementary", county: "Allen" }],
 };
 
 function verdict(overrides: Partial<SentenceVerdict> = {}): SentenceVerdict {

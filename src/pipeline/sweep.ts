@@ -61,7 +61,11 @@ export function sweep(
   config: Config,
   options: SweepOptions = {},
 ): Effect.Effect<SweepResult, never> {
-  const classify = options.classify ?? classifyResponse;
+  // The categories ride from config into every call. They are the run's
+  // taxonomy now that #27 made them config-defined rather than an enum, so the
+  // sweep binds them once here rather than asking each caller to thread them.
+  const classify =
+    options.classify ?? ((row: SurveyResponse) => classifyResponse(row, config.categories));
   const { maxRetries, baseDelay } = options.retry ?? DEFAULT_RETRY;
   const failures = emptyFailureCounts();
 

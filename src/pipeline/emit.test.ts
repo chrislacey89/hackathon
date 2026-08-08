@@ -23,6 +23,9 @@ function lead(overrides: Partial<RoutedLead> = {}): RoutedLead {
     verdicts: [],
     teamId: "program-staff",
     recipientIds: ["r-program"],
+    county: "Allen",
+    school: "Northrop HS",
+    submittedAt: "2026-01-01T09:00",
     name: "Dana Reyes",
     email: "dana@acme.com",
     employer: "Acme Corp",
@@ -34,7 +37,11 @@ function lead(overrides: Partial<RoutedLead> = {}): RoutedLead {
 const AT = "2026-08-08T12:00:00Z";
 
 const CONFIG: Config = {
-  source: "teams.example.json",
+  sources: {
+    teams: "teams.example.json",
+    categories: "categories.example.json",
+    counties: "counties.example.json",
+  },
   nearMissCap: 25,
   concurrency: 4,
   recipients: [{ id: "r-program", name: "Program Lead", email: "program@ja.org" }],
@@ -42,11 +49,15 @@ const CONFIG: Config = {
     {
       id: "program-staff",
       label: "Program Staff",
-      owns: ["volunteer_again"],
+      owns: [{ category: "volunteer_again", county: "Allen" }],
       recipientIds: ["r-program"],
       inferred: true,
     },
   ],
+  categories: [
+    { id: "volunteer_again", label: "Volunteer again", description: "d", inferred: true },
+  ],
+  counties: [{ school: "Northrop HS", county: "Allen", inferred: true }],
 };
 
 async function runPath(): Promise<string> {
@@ -85,6 +96,7 @@ describe("writeRun", () => {
       responses: 4,
       routed: 3,
       unowned: 0,
+      unmapped: 0,
       multiIntent: 1,
       serviceRecovery: 1,
     });
@@ -137,6 +149,67 @@ describe("writeRun", () => {
       SchemaInvalid: 0,
       Transient: 0,
     });
+  });
+
+  it("counts a routable lead whose school has no county as unmapped, not unowned", async () => {
+    const path = await runPath();
+
+    await Effect.runPromise(
+      writeRun(
+        [lead({ teamId: null, recipientIds: [], county: null, school: "Lafayette Jeff HS" })],
+        {
+          path,
+          generatedAt: AT,
+          config: CONFIG,
+        },
+      ),
+    );
+    const counts = (await readRun(path)).counts;
+
+    // Two gaps, two files, two repairs. Summing them into "not routed" would
+    // send an operator to the wrong one.
+    expect(counts).toMatchObject({ unmapped: 1, unowned: 0 });
+  });
+
+  it("denormalises the categories and the county lookup it routed with", async () => {
+    const path = await runPath();
+
+    await Effect.runPromise(writeRun([lead()], { path, generatedAt: AT, config: CONFIG }));
+    const run = await readRun(path);
+
+    // The app cannot call the Effect-based config loader, and these carry the
+    // labels the UI prints and the `inferred` flags it badges — the job the
+    // deleted `TYPE_LABELS satisfies Record<EngagementType, string>` used to do.
+    expect(run.categories).toEqual([
+      { id: "volunteer_again", label: "Volunteer again", inferred: true },
+    ]);
+    expect(run.counties).toEqual([{ school: "Northrop HS", county: "Allen", inferred: true }]);
+    expect(run.configSource).toBe(
+      "teams.example.json, categories.example.json, counties.example.json",
+    );
+  });
+
+  it("refuses to write a lead citing a category the run does not carry", async () => {
+    const path = await runPath();
+
+    // The check that replaces `z.enum(ENGAGEMENT_TYPES)`. A run naming a
+    // category its own config does not define would render as a raw id beside a
+    // lead routed to nobody — indistinguishable from a real routing gap.
+    const result = await Effect.runPromise(
+      Effect.either(
+        writeRun([lead({ engagementType: "speaking", engagementTypes: ["speaking"] })], {
+          path,
+          generatedAt: AT,
+          config: CONFIG,
+        }),
+      ),
+    );
+
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") expect(result.left.reason).toMatch(/speaking/);
+    // And nothing was written — a rejected run must not leave a half-valid file
+    // behind for the app to read.
+    await expect(readFile(path, "utf8")).rejects.toThrow();
   });
 
   it("marks the tracer's run partial, because one response is not the export", async () => {

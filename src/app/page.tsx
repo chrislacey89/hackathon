@@ -1,6 +1,6 @@
-import type { EngagementType, FreeTextColumn } from "../domain/engagement";
+import type { FreeTextColumn } from "../domain/engagement";
 import { readRun } from "../run/read";
-import type { RunFile } from "../run/run-file";
+import type { RunCategory, RunFile } from "../run/run-file";
 import styles from "./page.module.css";
 
 /**
@@ -15,25 +15,6 @@ import styles from "./page.module.css";
  */
 
 export const dynamic = "force-dynamic";
-
-/**
- * `satisfies Record<EngagementType, string>` rather than `Record<string, string>`.
- *
- * The annotation would accept any key, so adding a member to `ENGAGEMENT_TYPES`
- * would leave this map silently incomplete and the UI would print the raw enum
- * value. `satisfies` makes the map total: the build breaks until the new type
- * has a label. That matters more than usual here — the correct-course note on
- * #2 says JA's taxonomy is changing (it adds *donate SWAG* and splits donation
- * into personal and corporate), so this map is guaranteed to go stale.
- */
-const TYPE_LABELS = {
-  volunteer_again: "Volunteer again",
-  committee_board: "Committee / board",
-  corporate_sponsorship: "Corporate sponsorship",
-  refer_colleague: "Refer a colleague",
-  speaking: "Speaking",
-  donation: "Donation",
-} as const satisfies Record<EngagementType, string>;
 
 const COLUMN_LABELS = {
   q5_what_went_well: "what went well",
@@ -57,6 +38,24 @@ export default async function Page() {
   const run = await readRun();
   const queue = firstQueue(run);
   const teamLabel = (id: string | null) => run.teams.find((t) => t.id === id);
+
+  /**
+   * Category labels come from the run, not from a map in this file.
+   *
+   * The old `TYPE_LABELS satisfies Record<EngagementType, string>` broke the
+   * build when a category was added without a label — a guard worth naming
+   * because it is gone. It cannot survive a runtime-sourced member set, so the
+   * label moved into `config/categories.json` beside the id, where a category
+   * without one is rejected at load rather than caught at compile time.
+   * `parseRun` refuses a lead citing a category the run does not carry, so the
+   * fallback below is unreachable for a validated run — it exists so this
+   * function is total rather than as a place a raw id could quietly surface.
+   */
+  const category = (id: string): RunCategory =>
+    run.categories.find((c) => c.id === id) ?? { id, label: id, inferred: false };
+
+  const countyInferred = (school: string) =>
+    run.counties.find((row) => row.school === school)?.inferred ?? false;
 
   return (
     <main className={styles.page}>
@@ -86,7 +85,21 @@ export default async function Page() {
           <span className={styles.bannerLabel}>Unowned</span>
           <span>
             {run.counts.unowned} routable lead{run.counts.unowned === 1 ? "" : "s"} reached nobody.
-            The routing table has a gap.
+            No recipient owns their category in their county — <code>teams.json</code> has a gap.
+          </span>
+        </p>
+      ) : null}
+
+      {/* A separate banner, not a second sentence in the one above. The repairs
+          are different files and different people: an unowned lead needs JA to
+          name a manager, an unmapped one needs a row added to the lookup. */}
+      {run.counts.unmapped > 0 ? (
+        <p className={styles.banner}>
+          <span className={styles.bannerLabel}>Unmapped</span>
+          <span>
+            {run.counts.unmapped} routable lead{run.counts.unmapped === 1 ? "" : "s"} came from a
+            school that is in no county. They are held here rather than guessed —{" "}
+            <code>counties.json</code> has a gap.
           </span>
         </p>
       ) : null}
@@ -123,12 +136,32 @@ export default async function Page() {
                     {lead.signal} signal
                   </span>
                   {lead.engagementType ? (
-                    <span className={styles.badge}>{TYPE_LABELS[lead.engagementType]}</span>
+                    <span className={styles.badge}>{category(lead.engagementType).label}</span>
                   ) : null}
+                  {lead.county ? (
+                    <span className={styles.badge}>{lead.county} County</span>
+                  ) : (
+                    <span className={`${styles.badge} ${styles.badgeInferred}`}>
+                      county unmapped · {lead.school}
+                    </span>
+                  )}
                   {team ? <span className={styles.badge}>{team.label}</span> : null}
+                  {/* PRD #1 §Flow Sketch: anything JA has not authored says so.
+                      Three separate guesses, badged separately, because they are
+                      three separate things for JA to correct. */}
                   {team?.inferred ? (
                     <span className={`${styles.badge} ${styles.badgeInferred}`}>
                       routing inferred
+                    </span>
+                  ) : null}
+                  {lead.engagementType && category(lead.engagementType).inferred ? (
+                    <span className={`${styles.badge} ${styles.badgeInferred}`}>
+                      category inferred
+                    </span>
+                  ) : null}
+                  {lead.county && countyInferred(lead.school) ? (
+                    <span className={`${styles.badge} ${styles.badgeInferred}`}>
+                      county inferred
                     </span>
                   ) : null}
                   {lead.serviceRecovery ? (

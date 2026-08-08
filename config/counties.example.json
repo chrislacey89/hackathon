@@ -1,0 +1,16 @@
+{
+  "counties": [
+    { "school": "Blackhawk MS", "county": "Allen", "inferred": true },
+    { "school": "Carroll MS", "county": "Allen", "inferred": true },
+    { "school": "Homestead HS", "county": "Allen", "inferred": true },
+    { "school": "Jefferson MS", "county": "Allen", "inferred": true },
+    { "school": "Lakeside MS", "county": "Allen", "inferred": true },
+    { "school": "Leo JR/SR HS", "county": "Allen", "inferred": true },
+    { "school": "Memorial Park MS", "county": "Allen", "inferred": true },
+    { "school": "Northrop HS", "county": "Allen", "inferred": true },
+    { "school": "Shawnee MS", "county": "Allen", "inferred": true },
+    { "school": "Snider HS", "county": "Allen", "inferred": true },
+    { "school": "Wayne HS", "county": "Allen", "inferred": true },
+    { "school": "Woodside MS", "county": "Allen", "inferred": true }
+  ]
+}

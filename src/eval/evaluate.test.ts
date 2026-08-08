@@ -291,6 +291,7 @@ describe("evaluate", () => {
       recall: 0.5,
       support: 2,
       unmeasurable: true,
+      unmeasurableReason: "low-support",
     });
   });
 
@@ -370,6 +371,7 @@ describe("evaluate", () => {
         support: 4,
         recall: 1,
         unmeasurable: true,
+        unmeasurableReason: "low-support",
       });
     });
 
@@ -377,7 +379,108 @@ describe("evaluate", () => {
       expect(metricsFor(report(MIN_MEASURABLE_SUPPORT).signal, "strong")).toMatchObject({
         support: MIN_MEASURABLE_SUPPORT,
         unmeasurable: false,
+        unmeasurableReason: null,
       });
     });
+  });
+});
+
+/**
+ * The taxonomy the labels use and the taxonomy the model predicts are now
+ * different schemes.
+ *
+ * `LABELED_SAMPLE_TYPES` is what the 150 rows were labeled with;
+ * `config/categories.json` is JA's, and it shares no member with them (#24 §2 —
+ * SWAG is added, volunteering splits by programme, and `speaking`,
+ * `refer_colleague`, and `committee_board` are gone). Per-type precision and
+ * recall across that boundary are not low, they are meaningless: every pair
+ * mismatches by construction.
+ *
+ * The danger is specific. `unmeasurable` was purely a support threshold, so a
+ * label class with 20 examples and zero possible true positives would have been
+ * reported as `recall 0.00, n 20` with no flag — a confident wrong number, and
+ * exactly the failure PRD #1 §Rabbit Holes drops per-type accuracy to avoid.
+ */
+describe("evaluate across a taxonomy change", () => {
+  const rows = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+
+  const truthRows = rows.map((id) => truth(id, "strong", { engagementType: "speaking" }));
+  const jaRows = rows.map((id) =>
+    predict(id, "strong", {
+      engagementType: "volunteer_jafp",
+      engagementTypes: ["volunteer_jafp"],
+    }),
+  );
+
+  it("marks every per-type metric unmeasurable when the two schemes are disjoint", () => {
+    const report = evaluate({
+      split: "dev",
+      truth: truthRows,
+      predictions: jaRows,
+      baseline: jaRows,
+    });
+
+    // Support is 12 — well past MIN_MEASURABLE_SUPPORT — so the old threshold
+    // alone would have called this measurable and printed recall 0.00.
+    expect(metricsFor(report.engagementType, "speaking").support).toBeGreaterThan(
+      MIN_MEASURABLE_SUPPORT,
+    );
+    expect(report.engagementType.every((m) => m.unmeasurable)).toBe(true);
+    expect(report.engagementType.every((m) => m.unmeasurableReason === "taxonomy-mismatch")).toBe(
+      true,
+    );
+  });
+
+  it("leaves signal measurable — it is the taxonomy-independent number", () => {
+    const report = evaluate({
+      split: "dev",
+      truth: truthRows,
+      predictions: jaRows,
+      baseline: jaRows,
+    });
+
+    // This is the whole reason PRD #1 leans on signal-vs-none: it survives the
+    // taxonomy change untouched. If this ever goes unmeasurable, the harness
+    // has stopped reporting the only number it is entitled to.
+    expect(metricsFor(report.signal, "strong").unmeasurable).toBe(false);
+    expect(metricsFor(report.signal, "strong").recall).toBe(1);
+  });
+
+  it("keeps reporting per-type numbers while the schemes still overlap", () => {
+    // One shared member is enough to make the comparison meaningful again —
+    // the flag must not fire merely because some class appears on one side.
+    const mixed = jaRows.map((row, index) =>
+      index < 6 ? { ...row, engagementType: "speaking", engagementTypes: ["speaking"] } : row,
+    );
+
+    const report = evaluate({
+      split: "dev",
+      truth: truthRows,
+      predictions: mixed,
+      baseline: mixed,
+    });
+
+    expect(metricsFor(report.engagementType, "speaking").unmeasurable).toBe(false);
+    expect(metricsFor(report.engagementType, "speaking").unmeasurableReason).toBeNull();
+    // A class only the model emits is still reported, with its false positives
+    // counted — the case a fixed class list would hide.
+    expect(metricsFor(report.engagementType, "volunteer_jafp").fp).toBe(6);
+  });
+
+  it("does not fire on an empty comparison, where there is nothing to be disjoint from", () => {
+    const noneRows = rows.map((id) => truth(id, "none"));
+    const nonePredictions = rows.map((id) => predict(id, "none"));
+
+    const report = evaluate({
+      split: "dev",
+      truth: noneRows,
+      predictions: nonePredictions,
+      baseline: nonePredictions,
+    });
+
+    // Nobody named a type, so there is no taxonomy to mismatch. Reporting an
+    // empty list is right; reporting it as "taxonomy-mismatch" would invent a
+    // finding.
+    expect(report.engagementType).toEqual([]);
   });
 });

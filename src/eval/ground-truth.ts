@@ -3,12 +3,42 @@ import { parse } from "csv-parse/sync";
 import { Data, Effect } from "effect";
 import {
   ENGAGEMENT_SIGNALS,
-  ENGAGEMENT_TYPES,
   type EngagementSignal,
   type EngagementType,
   FREE_TEXT_COLUMNS,
   type FreeTextColumn,
 } from "../domain/engagement";
+
+/**
+ * The engagement vocabulary of `data/ground_truth_labeled_sample.csv` — and of
+ * nothing else.
+ *
+ * These six were the project's taxonomy when the 150 rows were labeled, and
+ * they are frozen here because the file is frozen: it is a committed artifact
+ * with a fixed set of values in one column, so its allowed members are a
+ * property of the file in the same way `REQUIRED_HEADERS` is.
+ *
+ * They are **not** JA's categories. Karen's list (`config/categories.json`)
+ * adds *donate SWAG*, splits volunteering by programme, and does not contain
+ * `speaking`, `refer_colleague`, or `committee_board` at all (#24 §2). The two
+ * schemes are disjoint, which is why PRD #1 §Rabbit Holes scores signal and
+ * service-recovery — both taxonomy-independent — and drops per-type accuracy.
+ * Re-labelling the sample against JA's taxonomy is the real cost there, and it
+ * belongs to #10, not here.
+ *
+ * Validating this column against JA's config instead would fail all 150 rows on
+ * load — a hard failure that would be technically correct and completely
+ * useless, since the labels are not wrong, they are answering a different
+ * question.
+ */
+export const LABELED_SAMPLE_TYPES = [
+  "volunteer_again",
+  "committee_board",
+  "corporate_sponsorship",
+  "refer_colleague",
+  "speaking",
+  "donation",
+] as const;
 
 /**
  * One row of `data/ground_truth_labeled_sample.csv` — a human's judgement about
@@ -129,7 +159,7 @@ export function loadGroundTruth(path: string): Effect.Effect<GroundTruth[], Grou
           );
         }
 
-        const engagementType = member(ENGAGEMENT_TYPES, row.engagement_type);
+        const engagementType = member(LABELED_SAMPLE_TYPES, row.engagement_type);
         if (engagementType === "invalid") {
           return Effect.fail(
             new GroundTruthError({
