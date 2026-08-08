@@ -1,8 +1,13 @@
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SentenceVerdict } from "../domain/engagement";
 import type { ResponseVerdict } from "./aggregate";
 import type { SurveyResponse } from "./ingest";
 import {
+  appendQuotes,
   collectedKeys,
   consentOf,
   extractQuotes,
@@ -265,5 +270,48 @@ describe("renderQuotesDocument", () => {
     );
 
     expect(() => renderQuotesDocument(corrupted, [candidate()])).toThrow(/unreadable quote-key/);
+  });
+});
+
+describe("appendQuotes", () => {
+  async function quotesPath(): Promise<string> {
+    return join(await mkdtemp(join(tmpdir(), "quotes-")), "quotes.md");
+  }
+
+  it("creates the document on the first run, when no file exists yet", async () => {
+    const path = await quotesPath();
+
+    const added = await Effect.runPromise(appendQuotes(path, [candidate()]));
+
+    expect(added).toHaveLength(1);
+    expect(await readFile(path, "utf8")).toContain("Ada Lovelace");
+  });
+
+  it("adds nothing on a second run over the same export", async () => {
+    const path = await quotesPath();
+    await Effect.runPromise(appendQuotes(path, [candidate()]));
+    const afterFirst = await readFile(path, "utf8");
+
+    const added = await Effect.runPromise(appendQuotes(path, [candidate()]));
+
+    expect(added).toEqual([]);
+    expect(await readFile(path, "utf8")).toBe(afterFirst);
+  });
+
+  it("fails rather than overwriting a document it cannot read", async () => {
+    const path = await quotesPath();
+    await writeFile(path, "# Something Karen wrote by hand\n");
+
+    await expect(Effect.runPromise(appendQuotes(path, [candidate()]))).rejects.toThrow();
+    expect(await readFile(path, "utf8")).toBe("# Something Karen wrote by hand\n");
+  });
+
+  it("reports one addition when the same quote arrives twice in one batch", async () => {
+    const path = await quotesPath();
+
+    const added = await Effect.runPromise(appendQuotes(path, [candidate(), candidate()]));
+
+    expect(added).toHaveLength(1);
+    expect(collectedKeys(await readFile(path, "utf8")).size).toBe(1);
   });
 });

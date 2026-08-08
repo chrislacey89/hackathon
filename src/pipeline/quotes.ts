@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { Data, Effect } from "effect";
 import type { FreeTextColumn } from "../domain/engagement";
 import type { ResponseVerdict } from "./aggregate";
 import type { SurveyResponse } from "./ingest";
@@ -164,6 +166,31 @@ function tryParseKey(encoded: string): string | undefined {
   }
 }
 
+/**
+ * The candidates this document does not already hold, in the order given.
+ *
+ * Deduplicates against the batch as well as against the document, because one
+ * export can legitimately yield the same key twice — the same sentence reached
+ * by two verdicts, or an operator passing a concatenation of two runs. Both
+ * `renderQuotesDocument` and `appendQuotes` need this answer, and they must
+ * agree: the count reported to the operator and the entries written to the file
+ * come from one call, so "added 2" can never sit beside a document that gained
+ * one.
+ */
+export function uncollected(document: string, candidates: QuoteCandidate[]): QuoteCandidate[] {
+  const seen = collectedKeys(document);
+  const fresh: QuoteCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const key = quoteKey(candidate);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fresh.push(candidate);
+  }
+
+  return fresh;
+}
+
 function entry(candidate: QuoteCandidate): string {
   const quoted = candidate.quote
     .split("\n")
@@ -210,14 +237,7 @@ export function renderQuotesDocument(existing: string, candidates: QuoteCandidat
     );
   }
 
-  const already = collectedKeys(base);
-  const fresh: QuoteCandidate[] = [];
-  for (const candidate of candidates) {
-    const key = quoteKey(candidate);
-    if (already.has(key)) continue;
-    already.add(key);
-    fresh.push(candidate);
-  }
+  const fresh = uncollected(base, candidates);
   if (fresh.length === 0) return base;
 
   const usable = fresh
@@ -240,4 +260,69 @@ export function renderQuotesDocument(existing: string, candidates: QuoteCandidat
   ]
     .join("\n\n")
     .concat("\n");
+}
+
+export class QuotesError extends Data.TaggedError("QuotesError")<{
+  readonly path: string;
+  readonly reason: string;
+}> {}
+
+/** Where the running document lives, relative to the repo root. */
+export const QUOTES_PATH = "quotes.md";
+
+/**
+ * Add this run's quotes to the document on disk, and report what was new.
+ *
+ * The only impure function here — read, render, write — so everything that
+ * decides *what* the document says stays testable without a filesystem.
+ *
+ * A missing file is the first run, not an error: the document does not exist
+ * until there is a quote to put in it. Every other read failure is real and
+ * propagates, because the alternative is treating an unreadable document as an
+ * empty one and writing a fresh preamble over weeks of collected quotes.
+ *
+ * Returns the newly added candidates rather than void, so a caller can say how
+ * many quotes this week produced without diffing the file. Zero is a normal
+ * answer on a re-run over an unchanged export.
+ */
+export function appendQuotes(
+  path: string,
+  candidates: QuoteCandidate[],
+): Effect.Effect<QuoteCandidate[], QuotesError> {
+  return Effect.tryPromise({
+    try: () => readFile(path, "utf8"),
+    catch: (cause) =>
+      isNotFound(cause)
+        ? new NoDocumentYet({})
+        : new QuotesError({ path, reason: `could not read: ${String(cause)}` }),
+  }).pipe(
+    Effect.catchTag("NoDocumentYet", () => Effect.succeed("")),
+    Effect.flatMap((existing) =>
+      Effect.try({
+        try: () => ({
+          document: renderQuotesDocument(existing, candidates),
+          added: uncollected(existing, candidates),
+        }),
+        catch: (cause) => new QuotesError({ path, reason: String(cause) }),
+      }),
+    ),
+    Effect.flatMap(({ document, added }) =>
+      Effect.tryPromise({
+        try: () => writeFile(path, document, "utf8"),
+        catch: (cause) => new QuotesError({ path, reason: `could not write: ${String(cause)}` }),
+      }).pipe(Effect.as(added)),
+    ),
+  );
+}
+
+/** Internal: "the document does not exist yet", which is not a failure. */
+class NoDocumentYet extends Data.TaggedError("NoDocumentYet")<Record<string, never>> {}
+
+function isNotFound(cause: unknown): boolean {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    (cause as { code?: unknown }).code === "ENOENT"
+  );
 }
