@@ -1,4 +1,10 @@
-import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
+import {
+  APICallError,
+  LoadAPIKeyError,
+  NoObjectGeneratedError,
+  NoSuchModelError,
+  TypeValidationError,
+} from "ai";
 import { describe, expect, it } from "vitest";
 import {
   classifyCause,
@@ -95,6 +101,26 @@ describe("classifyCause", () => {
     const error = classifyCause("JA-1", apiError({ statusCode: 401, isRetryable: false }));
 
     expect(error._tag).toBe("SchemaInvalid");
+  });
+
+  it("reads a missing API key as deterministic, not as a blip worth retrying", () => {
+    // The likeliest operator mistake, and the most expensive one to get wrong.
+    // `LoadAPIKeyError` is not an `APICallError`, so it used to fall through to
+    // the transient catch-all and buy four attempts per row — 1,536 calls'
+    // worth of backoff across the export, reported as a network problem.
+    const error = classifyCause("JA-1", new LoadAPIKeyError({ message: "API key is missing" }));
+
+    expect(error._tag).toBe("SchemaInvalid");
+    expect(isRetryable(error)).toBe(false);
+  });
+
+  it("reads an unknown model id as deterministic too", () => {
+    const error = classifyCause(
+      "JA-1",
+      new NoSuchModelError({ modelId: "gemini-9.9-imaginary", modelType: "languageModel" }),
+    );
+
+    expect(isRetryable(error)).toBe(false);
   });
 
   it("reads an error the SDK never wrapped as transient", () => {

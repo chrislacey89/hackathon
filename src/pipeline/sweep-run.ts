@@ -21,7 +21,23 @@ import { sweep } from "./sweep";
 
 const EXPORT_PATH = "data/volunteer_survey_export.csv";
 
+/**
+ * Read by `@ai-sdk/google` under exactly this name, and documented in
+ * `.env.example` — `GEMINI_API_KEY` is the CLI's variable and the SDK will not
+ * find it.
+ */
+const API_KEY_VAR = "GOOGLE_GENERATIVE_AI_API_KEY";
+
 const program = Effect.gen(function* () {
+  // Checked once, up front, rather than discovered 384 times. Without the key
+  // every row fails identically and the run still writes a well-formed report
+  // — one that says 384 deterministic failures when the truth is one missing
+  // environment variable. A misconfigured run should not look like a data
+  // problem.
+  if ((process.env[API_KEY_VAR] ?? "") === "") {
+    return yield* Effect.dieMessage(`${API_KEY_VAR} is not set — see .env.example`);
+  }
+
   const config = yield* loadConfig();
   const responses = yield* loadResponses(EXPORT_PATH);
 

@@ -1,4 +1,10 @@
-import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
+import {
+  APICallError,
+  LoadAPIKeyError,
+  NoObjectGeneratedError,
+  NoSuchModelError,
+  TypeValidationError,
+} from "ai";
 import { Data } from "effect";
 import type { FailureTag } from "../domain/failure";
 
@@ -66,15 +72,39 @@ function retryAfterSeconds(headers: Record<string, string> | undefined): number 
 }
 
 /**
+ * Errors that mean the run is misconfigured rather than unlucky.
+ *
+ * A missing key and an unknown model id are the two likeliest operator
+ * mistakes, and neither is an `APICallError` — the request never reached the
+ * provider. They therefore used to miss the `isRetryable` branch entirely and
+ * land on the transient catch-all at the bottom, which is the most expensive
+ * possible answer: four attempts per row, ~1,536 attempts across the export,
+ * eleven minutes of backoff, and a final report blaming the network.
+ *
+ * They are listed here explicitly rather than folded into the catch-all,
+ * because the catch-all's optimism is correct for what it is actually for —
+ * socket resets and DNS blips, which do succeed on a second attempt.
+ */
+const DETERMINISTIC_SDK_ERRORS = [LoadAPIKeyError, NoSuchModelError] as const;
+
+/**
  * Put a thrown cause into the taxonomy.
  *
  * The retryable/deterministic split is taken from `APICallError.isRetryable`
  * rather than a status-code list of our own. The provider SDK already encodes
  * which of its statuses are worth trying again, and duplicating that as
  * `status >= 500 || status === 429` here would be a second copy to drift.
+ *
+ * The ordering below is deliberate: every *known* deterministic shape is
+ * matched first, and the optimistic `Transient` default is reached only by
+ * causes we genuinely cannot identify.
  */
 export function classifyCause(responseId: string, cause: unknown): ClassifyError {
   if (NoObjectGeneratedError.isInstance(cause) || TypeValidationError.isInstance(cause)) {
+    return new SchemaInvalid({ responseId });
+  }
+
+  if (DETERMINISTIC_SDK_ERRORS.some((sdkError) => sdkError.isInstance(cause))) {
     return new SchemaInvalid({ responseId });
   }
 

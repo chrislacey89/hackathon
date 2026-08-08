@@ -54,6 +54,31 @@ export function isUnowned(lead: RoutedLead): boolean {
  * Dropping it here would make a config gap look like an absence of intent,
  * and nothing downstream could tell the difference.
  */
+export function route(
+  verdict: ResponseVerdict,
+  response: SurveyResponse,
+  config: Config,
+): RoutedLead {
+  const primaryTeam =
+    verdict.engagementType === null
+      ? null
+      : (teamsOwning([verdict.engagementType], config)[0] ?? null);
+
+  const recipientIds = [
+    ...new Set(teamsOwning(verdict.engagementTypes, config).flatMap((team) => team.recipientIds)),
+  ];
+
+  return {
+    ...verdict,
+    teamId: primaryTeam?.id ?? null,
+    recipientIds,
+    name: response.volunteerName,
+    email: response.volunteerEmail,
+    employer: response.employer,
+    program: response.program,
+  };
+}
+
 /**
  * Route a whole sweep's worth of verdicts, pairing each back to its volunteer.
  *
@@ -83,29 +108,4 @@ export function routeAll(
 
     return route(verdict, response, config);
   });
-}
-
-export function route(
-  verdict: ResponseVerdict,
-  response: SurveyResponse,
-  config: Config,
-): RoutedLead {
-  const primaryTeam =
-    verdict.engagementType === null
-      ? null
-      : (teamsOwning([verdict.engagementType], config)[0] ?? null);
-
-  const recipientIds = [
-    ...new Set(teamsOwning(verdict.engagementTypes, config).flatMap((team) => team.recipientIds)),
-  ];
-
-  return {
-    ...verdict,
-    teamId: primaryTeam?.id ?? null,
-    recipientIds,
-    name: response.volunteerName,
-    email: response.volunteerEmail,
-    employer: response.employer,
-    program: response.program,
-  };
 }
