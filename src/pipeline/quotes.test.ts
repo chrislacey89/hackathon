@@ -88,4 +88,80 @@ describe("extractQuotes", () => {
       },
     ]);
   });
+
+  it("draws nothing at all from a volunteer who declined contact", () => {
+    const candidates = extractQuotes(
+      [response({ optInContact: false })],
+      [responseVerdict({ verdicts: [verdict({ quotable: true })] })],
+    );
+
+    expect(candidates).toEqual([]);
+  });
+
+  it("keeps a blank-consent quote, marked for a human to check", () => {
+    const candidates = extractQuotes([response({ optInContact: null })], [responseVerdict()]);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.consent).toBe("needs_check");
+  });
+
+  it("ignores a sentence the model judged unquotable", () => {
+    const candidates = extractQuotes(
+      [response({ optInContact: true })],
+      [responseVerdict({ verdicts: [verdict({ quotable: false })] })],
+    );
+
+    expect(candidates).toEqual([]);
+  });
+
+  it("ignores a sentence nobody judged, rather than treating null as a yes", () => {
+    const candidates = extractQuotes(
+      [response({ optInContact: true })],
+      [responseVerdict({ verdicts: [verdict({ quotable: null })] })],
+    );
+
+    expect(candidates).toEqual([]);
+  });
+
+  it("collects a quote from a volunteer with no engagement signal whatsoever", () => {
+    // The slice's reason for existing. A response nobody would ever route can
+    // still hold the best line in the export, so quotability must not be
+    // reachable from signal in either direction.
+    const candidates = extractQuotes(
+      [response({ optInContact: true })],
+      [
+        responseVerdict({
+          signal: "none",
+          engagementType: null,
+          quote: null,
+          sourceColumn: null,
+          verdicts: [verdict({ signal: "none", engagementType: null, quotable: true })],
+        }),
+      ],
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.quote).toBe("The students asked better questions than the adults do.");
+  });
+
+  it("collects every quotable sentence in a response, not just the strongest", () => {
+    const candidates = extractQuotes(
+      [response({ optInContact: true })],
+      [
+        responseVerdict({
+          verdicts: [
+            verdict({ quote: "First good line.", quotable: true }),
+            verdict({ sentenceIndex: 1, quote: "Middling line.", quotable: false }),
+            verdict({ sentenceIndex: 2, quote: "Second good line.", quotable: true }),
+          ],
+        }),
+      ],
+    );
+
+    expect(candidates.map((c) => c.quote)).toEqual(["First good line.", "Second good line."]);
+  });
+
+  it("fails loudly when a verdict has no survey row to attribute it to", () => {
+    expect(() => extractQuotes([], [responseVerdict({ responseId: "JA-404" })])).toThrow("JA-404");
+  });
 });
