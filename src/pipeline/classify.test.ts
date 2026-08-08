@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { sentenceVerdictSchemaFor } from "../domain/engagement";
 import { partitionByCitation, type SentenceVerdict, SentenceVerdictSchema } from "./classify";
 import type { Sentence } from "./segment";
 
@@ -59,10 +61,21 @@ describe("SentenceVerdictSchema", () => {
     const result = SentenceVerdictSchema.safeParse({
       ...VALID,
       signal: "none",
-      engagementType: "donation",
+      engagementType: "donate_swag",
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("accepts any category id, because the member set is not knowable here", () => {
+    // This is the *read-back* schema. Categories come from
+    // config/categories.json, so the set a run used is a property of that run,
+    // not of this declaration — `parseRun` checks a lead against the run's own
+    // denormalised list, and `sentenceVerdictSchemaFor` closes the set on the
+    // way out. Pinned as a deliberate widening rather than left implicit.
+    expect(SentenceVerdictSchema.safeParse({ ...VALID, engagementType: "anything" }).success).toBe(
+      true,
+    );
   });
 
   describe("rejects", () => {
@@ -74,13 +87,6 @@ describe("SentenceVerdictSchema", () => {
         expect(result.error.issues[0]?.path).toEqual(["column"]);
         expect(result.error.issues[0]?.code).toBe("invalid_value");
       }
-    });
-
-    it("an engagement type outside the enum", () => {
-      const result = SentenceVerdictSchema.safeParse({ ...VALID, engagementType: "donate_swag" });
-
-      expect(result.success).toBe(false);
-      if (!result.success) expect(result.error.issues[0]?.path).toEqual(["engagementType"]);
     });
 
     it("a confidence above 1", () => {
@@ -121,6 +127,72 @@ describe("SentenceVerdictSchema", () => {
 
   it("accepts sentence index 0", () => {
     expect(SentenceVerdictSchema.safeParse({ ...VALID, sentenceIndex: 0 }).success).toBe(true);
+  });
+});
+
+/**
+ * The outbound half of the contract — what Gemini is actually constrained by.
+ *
+ * The closed enum used to be `z.enum(ENGAGEMENT_TYPES)` and is now built from
+ * the categories the run loaded. Without it the structured-output contract would
+ * accept any string, and an invented category would route to nobody and show up
+ * as a routing-table gap that is not one.
+ */
+describe("sentenceVerdictSchemaFor", () => {
+  const schema = sentenceVerdictSchemaFor(["volunteer_again", "donate_swag"]);
+
+  it("accepts a category the run loaded", () => {
+    expect(schema.safeParse({ ...VALID, engagementType: "donate_swag" }).success).toBe(true);
+  });
+
+  it("rejects a category the run did not load", () => {
+    // `speaking` was a real category before JA's taxonomy replaced ours (#24
+    // §2). A model still emitting it must be caught here rather than routed.
+    const result = schema.safeParse({ ...VALID, engagementType: "speaking" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.path).toEqual(["engagementType"]);
+  });
+
+  it("still allows null, for a none-signal sentence", () => {
+    expect(schema.safeParse({ ...VALID, signal: "none", engagementType: null }).success).toBe(true);
+  });
+
+  it("keeps every other bound the read-back schema has", () => {
+    // Derived from `SentenceVerdictSchema` rather than declared beside it, so
+    // the two cannot drift — the drift that had already happened between the
+    // two hand-written declarations this module's schema exists to have merged.
+    expect(schema.safeParse({ ...VALID, confidence: 1.5 }).success).toBe(false);
+    expect(schema.safeParse({ ...VALID, column: "q4_volunteer_again" }).success).toBe(false);
+  });
+
+  it("still asks the model for every field, quotability included", () => {
+    // The one place #14 and #18 could have silently cancelled each other out.
+    // #18 added `quotable` to the verdict; #14 introduced this factory to close
+    // the category enum. It narrows by `.extend()`, so `quotable` survives — but
+    // a later rewrite that built a fresh `z.object` here would drop it from the
+    // *outbound* contract while every read-back test stayed green.
+    //
+    // That failure is silent by construction: the model would never be asked,
+    // every verdict would come back `quotable: null`, and #18 defines null as
+    // NOT JUDGED — so an empty quotes document would read as "the model found
+    // nothing worth quoting" rather than "we stopped asking". Karen's stated
+    // number-one need, failing quietly. Asserted against the emitted JSON
+    // Schema because that is the artifact the provider actually receives.
+    const emitted = z.toJSONSchema(schema, { io: "output" }) as {
+      properties: Record<string, unknown>;
+    };
+
+    expect(Object.keys(emitted.properties).sort()).toEqual([
+      "column",
+      "confidence",
+      "engagementType",
+      "quotable",
+      "quote",
+      "sentenceIndex",
+      "serviceRecovery",
+      "signal",
+    ]);
   });
 });
 

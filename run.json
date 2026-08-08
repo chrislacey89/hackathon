@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-08-08T18:18:07.453Z",
-  "configSource": "teams.example.json",
+  "configSource": "teams.example.json, categories.example.json, counties.example.json",
   "recipients": [
     {
       "id": "recipient-placeholder",
@@ -16,13 +16,113 @@
       "inferred": true
     }
   ],
+  "categories": [
+    {
+      "id": "volunteer_again",
+      "label": "Volunteer again",
+      "inferred": true
+    },
+    {
+      "id": "volunteer_jafp",
+      "label": "Volunteer — JA Finance Park",
+      "inferred": true
+    },
+    {
+      "id": "volunteer_in_school",
+      "label": "Volunteer — in-school",
+      "inferred": true
+    },
+    {
+      "id": "volunteer_events",
+      "label": "Volunteer — events",
+      "inferred": true
+    },
+    {
+      "id": "donate_swag",
+      "label": "Donate SWAG",
+      "inferred": true
+    },
+    {
+      "id": "personal_donation",
+      "label": "Personal financial donation",
+      "inferred": true
+    },
+    {
+      "id": "employer_involvement",
+      "label": "Employer involvement",
+      "inferred": true
+    }
+  ],
+  "counties": [
+    {
+      "school": "Blackhawk MS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Carroll MS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Homestead HS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Jefferson MS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Lakeside MS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Leo JR/SR HS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Memorial Park MS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Northrop HS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Shawnee MS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Snider HS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Wayne HS",
+      "county": "Allen",
+      "inferred": true
+    },
+    {
+      "school": "Woodside MS",
+      "county": "Allen",
+      "inferred": true
+    }
+  ],
   "partial": true,
   "counts": {
     "responses": 1,
     "routed": 1,
     "unowned": 0,
     "multiIntent": 0,
-    "serviceRecovery": 0
+    "serviceRecovery": 0,
+    "unmapped": 0
   },
   "leads": [
     {
@@ -93,6 +193,9 @@
       "recipientIds": [
         "recipient-placeholder"
       ],
+      "county": "Allen",
+      "school": "Leo JR/SR HS",
+      "submittedAt": "2026-01-15T20:15",
       "name": "Lucia Nunez",
       "email": "lucia.nunez@bluffton.com",
       "employer": "Bluffton Steel Works",

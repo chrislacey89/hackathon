@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  ENGAGEMENT_SIGNALS,
-  ENGAGEMENT_TYPES,
-  FREE_TEXT_COLUMNS,
-  SentenceVerdictSchema,
-} from "../domain/engagement";
+import { ENGAGEMENT_SIGNALS, FREE_TEXT_COLUMNS, SentenceVerdictSchema } from "../domain/engagement";
 import type { EvalReport } from "../eval/evaluate";
 import type { RoutedLead } from "../pipeline/route";
 
@@ -21,8 +16,13 @@ import type { RoutedLead } from "../pipeline/route";
 const RoutedLeadSchema = z.object({
   responseId: z.string(),
   signal: z.enum(ENGAGEMENT_SIGNALS),
-  engagementType: z.enum(ENGAGEMENT_TYPES).nullable(),
-  engagementTypes: z.array(z.enum(ENGAGEMENT_TYPES)),
+  // `z.string()`, not an enum — the category set is config-sourced, so it is not
+  // knowable at the time this schema is declared. It *is* knowable at the time a
+  // run is read, because the run denormalises its own `categories`; the
+  // cross-check in `checkCategoriesResolve` below is where the membership
+  // guarantee the enum used to give is actually enforced.
+  engagementType: z.string().nullable(),
+  engagementTypes: z.array(z.string()),
   confidence: z.number(),
   quote: z.string().nullable(),
   sourceColumn: z.enum(FREE_TEXT_COLUMNS).nullable(),
@@ -34,6 +34,11 @@ const RoutedLeadSchema = z.object({
   verdicts: z.array(SentenceVerdictSchema),
   teamId: z.string().nullable(),
   recipientIds: z.array(z.string()),
+  /** `null` exactly when `school` reached no row of the county lookup. */
+  county: z.string().nullable(),
+  school: z.string(),
+  /** Middle field of the ledger key `(responseId, submittedAt, recipientId)`. */
+  submittedAt: z.string(),
   name: z.string(),
   // Deliberately `z.string()`, not `z.email()` — unlike the recipient roster
   // below, this comes from JA's bulk survey export, which we do not control.
@@ -51,6 +56,12 @@ export const RunCountsSchema = z.object({
   routed: z.number().int().min(0),
   /** Routable leads reaching nobody. Non-zero means the routing table has a gap. */
   unowned: z.number().int().min(0),
+  /**
+   * Routable leads whose school is in no county. Non-zero means the *lookup*
+   * has a gap — a different repair from `unowned`, in a different file, so the
+   * two are counted separately rather than summed into "not routed".
+   */
+  unmapped: z.number().int().min(0),
   multiIntent: z.number().int().min(0),
   serviceRecovery: z.number().int().min(0),
 });
@@ -76,6 +87,36 @@ const RunTeamSchema = z.object({
 });
 
 /**
+ * JA's engagement categories, denormalised into the run.
+ *
+ * Two jobs, both of which used to be done by a TypeScript union. It carries the
+ * `label` the UI prints — previously `TYPE_LABELS satisfies Record<EngagementType,
+ * string>` in `page.tsx`, which cannot exist once the member set is
+ * runtime-sourced — and it is the list `checkCategoriesResolve` validates every
+ * lead against. `inferred` is what the UI badges: PRD #1 requires anything JA
+ * has not authored to say so.
+ */
+const RunCategorySchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  inferred: z.boolean(),
+});
+
+/**
+ * The `school → county` lookup this run routed with.
+ *
+ * Denormalised for the same reason as the roster: the app cannot call the
+ * Effect-based config loader, and the demo is supposed to need nothing but this
+ * one file. `inferred` badges a county we derived from geography rather than one
+ * JA supplied.
+ */
+const RunCountySchema = z.object({
+  school: z.string(),
+  county: z.string(),
+  inferred: z.boolean(),
+});
+
+/**
  * Every field is required — `support` most of all.
  *
  * PRD #1 §SMART criteria: a rate is never published without its count. Marking
@@ -91,6 +132,12 @@ const ClassMetricsSchema = z.object({
   recall: z.number().min(0).max(1),
   support: z.number().int().min(0),
   unmeasurable: z.boolean(),
+  /**
+   * Nullable rather than optional, for the same reason `support` is required:
+   * a flag that says a rate is unreadable without saying why leaves the reader
+   * to assume the common case, and the two reasons need opposite responses.
+   */
+  unmeasurableReason: z.enum(["low-support", "taxonomy-mismatch"]).nullable(),
 });
 
 const EvalReportSchema = z.object({
@@ -108,12 +155,14 @@ const EvalRunSchema = z.object({
   holdout: EvalReportSchema,
 });
 
-export const RunFileSchema = z.object({
+const RunFileShape = z.object({
   generatedAt: z.string(),
-  /** Which config file produced the routing — JA's, or the committed placeholders. */
+  /** Which config files produced the routing — JA's, or the committed placeholders. */
   configSource: z.string(),
   recipients: z.array(RunRecipientSchema),
   teams: z.array(RunTeamSchema),
+  categories: z.array(RunCategorySchema),
+  counties: z.array(RunCountySchema),
   /**
    * True when this run does not describe the whole export — a retry-exhausted
    * sweep, or the tracer's single response. A partial run must never render as
@@ -136,9 +185,42 @@ export const RunFileSchema = z.object({
   eval: EvalRunSchema.nullable(),
 });
 
+/**
+ * Every category a lead cites must be one this run carries.
+ *
+ * This is the read-back half of the guarantee `z.enum(ENGAGEMENT_TYPES)` used to
+ * give for free, and it has to live here rather than in the field's schema
+ * because the allowed set is a *sibling field* of the thing being validated —
+ * not knowable until the same parse has read `categories`.
+ *
+ * Without it a run could name a category its own config does not define, and
+ * the UI would print a raw id with no label beside a lead routed to nobody —
+ * indistinguishable from a genuine routing gap.
+ */
+export const RunFileSchema = RunFileShape.superRefine((run, ctx) => {
+  const known = new Set(run.categories.map((category) => category.id));
+
+  for (const [index, lead] of run.leads.entries()) {
+    const cited = [lead.engagementType, ...lead.engagementTypes].filter(
+      (id): id is string => id !== null,
+    );
+    for (const id of cited) {
+      if (!known.has(id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["leads", index, "engagementType"],
+          message: `lead ${lead.responseId} cites category "${id}", which this run does not carry`,
+        });
+      }
+    }
+  }
+});
+
 export type RunCounts = z.infer<typeof RunCountsSchema>;
 export type RunRecipient = z.infer<typeof RunRecipientSchema>;
 export type RunTeam = z.infer<typeof RunTeamSchema>;
+export type RunCategory = z.infer<typeof RunCategorySchema>;
+export type RunCounty = z.infer<typeof RunCountySchema>;
 
 /**
  * `leads` is typed as `RoutedLead[]` rather than the schema's inferred type so
@@ -147,7 +229,7 @@ export type RunTeam = z.infer<typeof RunTeamSchema>;
  */
 export type EvalRun = { dev: EvalReport; holdout: EvalReport };
 
-export type RunFile = Omit<z.infer<typeof RunFileSchema>, "leads" | "eval"> & {
+export type RunFile = Omit<z.infer<typeof RunFileShape>, "leads" | "eval"> & {
   leads: RoutedLead[];
   eval: EvalRun | null;
 };
@@ -212,7 +294,7 @@ export function parseRun(raw: unknown): RunFile {
  * would be deleted by the next eval run.
  *
  * The alternative considered and rejected was `z.looseObject` on
- * `RunFileSchema`. It preserves unknown keys, but its inferred type carries an
+ * `RunFileShape`. It preserves unknown keys, but its inferred type carries an
  * index signature — `run.totallyMadeUpField` then compiles clean everywhere,
  * including in the Next.js app. That trades a latent write-back bug for a
  * permanent hole in the type the whole project reads runs through.

@@ -28,8 +28,14 @@ function pct(value: number): string {
   return value.toFixed(2).padStart(5);
 }
 
+/** The two reasons a rate is unreadable need different responses, so they say so. */
+const UNMEASURABLE = {
+  "low-support": "  (support too low to read)",
+  "taxonomy-mismatch": "  (labels use a different taxonomy — not comparable)",
+} as const satisfies Record<NonNullable<ClassMetrics["unmeasurableReason"]>, string>;
+
 function row(metrics: ClassMetrics): string {
-  const flag = metrics.unmeasurable ? "  (support too low to read)" : "";
+  const flag = metrics.unmeasurableReason === null ? "" : UNMEASURABLE[metrics.unmeasurableReason];
   return (
     `    ${metrics.className.padEnd(22)}` +
     ` P ${pct(metrics.precision)}  R ${pct(metrics.recall)}` +
