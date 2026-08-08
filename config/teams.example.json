@@ -1,0 +1,28 @@
+{
+  "recipients": [
+    {
+      "id": "recipient-placeholder",
+      "name": "Placeholder Recipient",
+      "email": "placeholder@example.org",
+      "role": "Placeholder"
+    }
+  ],
+  "teams": [
+    {
+      "id": "placeholder-team",
+      "label": "Placeholder Team",
+      "owns": [
+        "volunteer_again",
+        "speaking",
+        "refer_colleague",
+        "committee_board",
+        "corporate_sponsorship",
+        "donation"
+      ],
+      "recipientIds": ["recipient-placeholder"],
+      "inferred": true
+    }
+  ],
+  "nearMissCap": 25,
+  "concurrency": 4
+}

@@ -1,0 +1,32 @@
+# Pipeline classification markers
+.claude/.tdd-active
+.claude/.tdd-skipped
+.claude/.ralph-checked
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Real recipient config — PII. config/teams.example.json is committed instead.
+config/teams.json
+
+# Build / cache
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# OS
+.DS_Store
+
+# Design-hook cache (config.json is committed — it disables the hook for this repo)
+.impeccable/*
+!.impeccable/config.json
