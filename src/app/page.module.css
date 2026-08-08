@@ -978,7 +978,3 @@ a.navItem:hover {
 .leadSent {
   opacity: 0.55;
 }
-
-.leadSent:hover {
-  opacity: 1;
-}
